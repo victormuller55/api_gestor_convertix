@@ -1,0 +1,25 @@
+package br.net.convertix.gestor.dto.request;
+
+import br.net.convertix.gestor.enums.StatusLandingPageLead;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class LandingPageLeadStatusRequest {
+
+    @NotNull(message = "O status é obrigatório")
+    private StatusLandingPageLead status;
+
+    private String observacao;
+}
