@@ -12,7 +12,7 @@ import java.net.URI;
 
 @Slf4j
 @Component
-@Profile("!test")
+@Profile("local")
 public class SwaggerBrowserLauncher {
 
     @Value("${server.port:8080}")

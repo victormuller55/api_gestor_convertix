@@ -1,5 +1,12 @@
 HELP.md
 target/
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.jks
+uploads/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

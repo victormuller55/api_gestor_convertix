@@ -4,39 +4,54 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Date;
 
 @Service
 public class JwtService {
 
     private final SecretKey secretKey;
-    private final ZoneId zoneId;
+    private final String issuer;
+    private final String audience;
+    private final Duration expiration;
+    private final Duration clockSkew;
 
     public JwtService(
             @Value("${jwt.secret}") String secret,
-            @Value("${jwt.timezone}") String timezone) {
+            @Value("${jwt.issuer}") String issuer,
+            @Value("${jwt.audience}") String audience,
+            @Value("${jwt.expiration-hours:24}") long expirationHours,
+            @Value("${jwt.clock-skew-seconds:30}") long clockSkewSeconds) {
+        if (!StringUtils.hasText(secret) || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("jwt.secret deve ter no mínimo 32 bytes");
+        }
         this.secretKey = Keys.hmacShaKeyFor(gerarChave(secret));
-        this.zoneId = ZoneId.of(timezone);
+        this.issuer = issuer;
+        this.audience = audience;
+        this.expiration = Duration.ofHours(expirationHours);
+        this.clockSkew = Duration.ofSeconds(clockSkewSeconds);
     }
 
     public String gerarToken(UsuarioAutenticado usuario) {
-        Date expiracao = Date.from(
-                LocalDate.now(zoneId).plusDays(1).atStartOfDay(zoneId).toInstant());
+        Instant agora = Instant.now();
+        Instant expiracao = agora.plus(expiration);
 
         return Jwts.builder()
+                .issuer(issuer)
+                .audience().add(audience).and()
                 .subject(usuario.getId().toString())
                 .claim("email", usuario.getEmail())
                 .claim("tipo", usuario.getTipo().name())
                 .claim("cliente_id", usuario.getClienteId())
-                .issuedAt(new Date())
-                .expiration(expiracao)
+                .issuedAt(Date.from(agora))
+                .expiration(Date.from(expiracao))
                 .signWith(secretKey)
                 .compact();
     }
@@ -44,6 +59,9 @@ public class JwtService {
     public UsuarioAutenticado extrairUsuario(String token) {
         var claims = Jwts.parser()
                 .verifyWith(secretKey)
+                .requireIssuer(issuer)
+                .requireAudience(audience)
+                .clockSkewSeconds(clockSkew.toSeconds())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

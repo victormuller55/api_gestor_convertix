@@ -17,4 +17,6 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long>, JpaSpec
     boolean existsByDocumento(String documento);
 
     boolean existsByDocumentoAndIdNot(String documento, Long id);
+
+    Optional<Cliente> findByAsaasCustomerId(String asaasCustomerId);
 }

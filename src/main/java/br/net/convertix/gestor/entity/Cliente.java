@@ -46,6 +46,9 @@ public class Cliente {
 
     private String telefone;
 
+    @Column(name = "asaas_customer_id", unique = true)
+    private String asaasCustomerId;
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", unique = true)
     private Usuario usuario;

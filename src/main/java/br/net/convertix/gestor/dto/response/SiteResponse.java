@@ -1,5 +1,6 @@
 package br.net.convertix.gestor.dto.response;
 
+import br.net.convertix.gestor.enums.SituacaoAssinaturaSite;
 import br.net.convertix.gestor.enums.StatusSite;
 import br.net.convertix.gestor.enums.TipoSite;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
@@ -28,6 +29,7 @@ public class SiteResponse {
     private String dominio;
     private String subdominio;
     private StatusSite status;
+    private SituacaoAssinaturaSite situacaoAssinatura;
     private SiteDominioResponse dominioInfo;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

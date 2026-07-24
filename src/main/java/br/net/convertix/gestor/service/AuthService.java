@@ -12,6 +12,7 @@ import br.net.convertix.gestor.repository.UsuarioRepository;
 import br.net.convertix.gestor.security.JwtService;
 import br.net.convertix.gestor.security.UsuarioAutenticado;
 import br.net.convertix.gestor.util.MapperUtil;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,22 +22,30 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthService {
 
+    private static final String CREDENCIAIS_INVALIDAS = "Usuário ou senha inválidos.";
+
     private final UsuarioRepository usuarioRepository;
     private final ClienteRepository clienteRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
+    private String dummyPasswordHash;
+
+    @PostConstruct
+    void initTimingSafeHash() {
+        this.dummyPasswordHash = passwordEncoder.encode("timing-safe-dummy");
+    }
+
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
-        Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new UnauthorizedException("Email ou senha inválidos"));
+        Usuario usuario = usuarioRepository.findByEmail(request.getEmail()).orElse(null);
 
-        if (!Boolean.TRUE.equals(usuario.getAtivo())) {
-            throw new UnauthorizedException("Usuário inativo");
-        }
+        // Mitiga timing attack: sempre executa matches, mesmo se o e-mail não existir
+        String hash = usuario != null ? usuario.getSenha() : dummyPasswordHash;
+        boolean senhaOk = passwordEncoder.matches(request.getSenha(), hash);
 
-        if (!passwordEncoder.matches(request.getSenha(), usuario.getSenha())) {
-            throw new UnauthorizedException("Email ou senha inválidos");
+        if (usuario == null || !Boolean.TRUE.equals(usuario.getAtivo()) || !senhaOk) {
+            throw new UnauthorizedException(CREDENCIAIS_INVALIDAS);
         }
 
         Cliente cliente = null;

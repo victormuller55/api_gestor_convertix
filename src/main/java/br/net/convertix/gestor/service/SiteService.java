@@ -3,15 +3,21 @@ package br.net.convertix.gestor.service;
 import br.net.convertix.gestor.dto.request.SiteDominioRequest;
 import br.net.convertix.gestor.dto.request.SiteRequest;
 import br.net.convertix.gestor.dto.response.SiteResponse;
+import br.net.convertix.gestor.entity.Assinatura;
 import br.net.convertix.gestor.entity.Cliente;
 import br.net.convertix.gestor.entity.Site;
 import br.net.convertix.gestor.entity.SiteDominio;
+import br.net.convertix.gestor.enums.SituacaoAssinaturaSite;
+import br.net.convertix.gestor.enums.StatusAssinatura;
+import br.net.convertix.gestor.enums.StatusPagamento;
 import br.net.convertix.gestor.enums.TipoSite;
 import br.net.convertix.gestor.exception.BusinessException;
 import br.net.convertix.gestor.exception.ResourceNotFoundException;
+import br.net.convertix.gestor.repository.AssinaturaRepository;
 import br.net.convertix.gestor.repository.BioLinkRepository;
 import br.net.convertix.gestor.repository.ClienteRepository;
 import br.net.convertix.gestor.repository.LandingPageRepository;
+import br.net.convertix.gestor.repository.PagamentoRepository;
 import br.net.convertix.gestor.repository.SiteRepository;
 import br.net.convertix.gestor.repository.spec.SiteSpecification;
 import br.net.convertix.gestor.util.MapperUtil;
@@ -19,7 +25,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,12 +44,22 @@ public class SiteService {
     private final BioLinkService bioLinkService;
     private final LandingPageService landingPageService;
     private final AutorizacaoService autorizacaoService;
+    private final AssinaturaRepository assinaturaRepository;
+    private final PagamentoRepository pagamentoRepository;
 
     @Transactional(readOnly = true)
     public List<SiteResponse> buscar(Long id, String query) {
         Long clienteIdFiltro = autorizacaoService.getClienteIdFiltro();
-        return siteRepository.findAll(SiteSpecification.comFiltros(id, query, clienteIdFiltro)).stream()
-                .map(MapperUtil::toResponse)
+        List<Site> sites = siteRepository.findAll(SiteSpecification.comFiltros(id, query, clienteIdFiltro));
+        Map<Long, Assinatura> assinaturaPorSite = carregarAssinaturasPorSite(sites);
+
+        return sites.stream()
+                .map(site -> {
+                    SiteResponse response = MapperUtil.toResponse(site);
+                    response.setSituacaoAssinatura(
+                            resolverSituacaoAssinatura(assinaturaPorSite.get(site.getId())));
+                    return response;
+                })
                 .toList();
     }
 
@@ -63,7 +85,9 @@ public class SiteService {
 
         sincronizarDominioInfo(site, request.getDominioInfo());
 
-        return MapperUtil.toResponse(siteRepository.save(site));
+        SiteResponse response = MapperUtil.toResponse(siteRepository.save(site));
+        response.setSituacaoAssinatura(SituacaoAssinaturaSite.DESATIVADO);
+        return response;
     }
 
     @Transactional
@@ -86,7 +110,11 @@ public class SiteService {
         MapperUtil.updateEntity(site, request);
         sincronizarDominioInfo(site, request.getDominioInfo());
 
-        return MapperUtil.toResponse(siteRepository.save(site));
+        Site salvo = siteRepository.save(site);
+        SiteResponse response = MapperUtil.toResponse(salvo);
+        Assinatura assinatura = carregarAssinaturasPorSite(List.of(salvo)).get(salvo.getId());
+        response.setSituacaoAssinatura(resolverSituacaoAssinatura(assinatura));
+        return response;
     }
 
     @Transactional
@@ -158,5 +186,62 @@ public class SiteService {
         if (existe) {
             throw new BusinessException("Já existe um site com o subdomínio: " + subdominio);
         }
+    }
+
+    private Map<Long, Assinatura> carregarAssinaturasPorSite(List<Site> sites) {
+        Set<Long> siteIds = sites.stream()
+                .map(Site::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (siteIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, Assinatura> porSite = new HashMap<>();
+        for (Assinatura assinatura : assinaturaRepository.findBySiteIdIn(siteIds)) {
+            if (assinatura.getSite() == null || assinatura.getSite().getId() == null) {
+                continue;
+            }
+            Long siteId = assinatura.getSite().getId();
+            Assinatura atual = porSite.get(siteId);
+            if (atual == null || preferirAssinatura(assinatura, atual)) {
+                porSite.put(siteId, assinatura);
+            }
+        }
+        return porSite;
+    }
+
+    private boolean preferirAssinatura(Assinatura candidata, Assinatura atual) {
+        int rankCandidata = rankStatusAssinatura(candidata.getStatus());
+        int rankAtual = rankStatusAssinatura(atual.getStatus());
+        if (rankCandidata != rankAtual) {
+            return rankCandidata < rankAtual;
+        }
+        return Comparator.comparing(Assinatura::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                .reversed()
+                .compare(candidata, atual) < 0;
+    }
+
+    private int rankStatusAssinatura(StatusAssinatura status) {
+        if (status == StatusAssinatura.ACTIVE) {
+            return 0;
+        }
+        if (status == StatusAssinatura.EXPIRED) {
+            return 1;
+        }
+        return 2;
+    }
+
+    private SituacaoAssinaturaSite resolverSituacaoAssinatura(Assinatura assinatura) {
+        if (assinatura == null || assinatura.getStatus() == StatusAssinatura.INACTIVE) {
+            return SituacaoAssinaturaSite.DESATIVADO;
+        }
+        if (assinatura.getStatus() == StatusAssinatura.EXPIRED) {
+            return SituacaoAssinaturaSite.VENCIDO;
+        }
+        boolean inadimplente = pagamentoRepository.existsByAssinaturaIdAndStatusIn(
+                assinatura.getId(),
+                List.of(StatusPagamento.OVERDUE));
+        return inadimplente ? SituacaoAssinaturaSite.VENCIDO : SituacaoAssinaturaSite.EM_DIA;
     }
 }
