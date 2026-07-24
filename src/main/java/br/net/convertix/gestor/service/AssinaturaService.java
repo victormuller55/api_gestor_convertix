@@ -5,6 +5,7 @@ import br.net.convertix.gestor.dto.request.AssinaturaUpdateRequest;
 import br.net.convertix.gestor.dto.request.CartaoCreditoRequest;
 import br.net.convertix.gestor.dto.request.CartaoTitularRequest;
 import br.net.convertix.gestor.dto.response.AssinaturaResponse;
+import br.net.convertix.gestor.dto.response.PageResponse;
 import br.net.convertix.gestor.entity.Assinatura;
 import br.net.convertix.gestor.entity.Cliente;
 import br.net.convertix.gestor.entity.Pagamento;
@@ -20,16 +21,17 @@ import br.net.convertix.gestor.repository.PagamentoRepository;
 import br.net.convertix.gestor.repository.SiteRepository;
 import br.net.convertix.gestor.repository.spec.AssinaturaSpecification;
 import br.net.convertix.gestor.util.FinanceiroMapperUtil;
+import br.net.convertix.gestor.util.PaginationUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -107,14 +109,12 @@ public class AssinaturaService {
     }
 
     @Transactional(readOnly = true)
-    public List<AssinaturaResponse> listar(StatusAssinatura status) {
+    public PageResponse<AssinaturaResponse> listar(StatusAssinatura status, int page, int size) {
         Long clienteIdFiltro = autorizacaoService.getClienteIdFiltro();
-        return assinaturaRepository.findAll(
-                        AssinaturaSpecification.comFiltros(clienteIdFiltro, status),
-                        Sort.by(Sort.Direction.DESC, "createdAt"))
-                .stream()
-                .map(FinanceiroMapperUtil::toResponse)
-                .collect(Collectors.toList());
+        Page<Assinatura> resultado = assinaturaRepository.findAll(
+                AssinaturaSpecification.comFiltros(clienteIdFiltro, status),
+                PaginationUtil.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
+        return PaginationUtil.toResponse(resultado, FinanceiroMapperUtil::toResponse);
     }
 
     @Transactional(readOnly = true)

@@ -2,6 +2,7 @@ package br.net.convertix.gestor.service;
 
 import br.net.convertix.gestor.dto.request.SiteDominioRequest;
 import br.net.convertix.gestor.dto.request.SiteRequest;
+import br.net.convertix.gestor.dto.response.PageResponse;
 import br.net.convertix.gestor.dto.response.SiteResponse;
 import br.net.convertix.gestor.entity.Assinatura;
 import br.net.convertix.gestor.entity.Cliente;
@@ -21,7 +22,9 @@ import br.net.convertix.gestor.repository.PagamentoRepository;
 import br.net.convertix.gestor.repository.SiteRepository;
 import br.net.convertix.gestor.repository.spec.SiteSpecification;
 import br.net.convertix.gestor.util.MapperUtil;
+import br.net.convertix.gestor.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,12 +51,14 @@ public class SiteService {
     private final PagamentoRepository pagamentoRepository;
 
     @Transactional(readOnly = true)
-    public List<SiteResponse> buscar(Long id, String query) {
+    public PageResponse<SiteResponse> buscar(Long id, String query, int page, int size) {
         Long clienteIdFiltro = autorizacaoService.getClienteIdFiltro();
-        List<Site> sites = siteRepository.findAll(SiteSpecification.comFiltros(id, query, clienteIdFiltro));
-        Map<Long, Assinatura> assinaturaPorSite = carregarAssinaturasPorSite(sites);
+        Page<Site> resultado = siteRepository.findAll(
+                SiteSpecification.comFiltros(id, query, clienteIdFiltro),
+                PaginationUtil.of(page, size));
+        Map<Long, Assinatura> assinaturaPorSite = carregarAssinaturasPorSite(resultado.getContent());
 
-        return sites.stream()
+        List<SiteResponse> content = resultado.getContent().stream()
                 .map(site -> {
                     SiteResponse response = MapperUtil.toResponse(site);
                     response.setSituacaoAssinatura(
@@ -61,6 +66,8 @@ public class SiteService {
                     return response;
                 })
                 .toList();
+
+        return PaginationUtil.toResponse(resultado, content);
     }
 
     @Transactional

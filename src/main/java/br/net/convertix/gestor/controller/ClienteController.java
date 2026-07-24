@@ -2,7 +2,9 @@ package br.net.convertix.gestor.controller;
 
 import br.net.convertix.gestor.dto.request.ClienteRequest;
 import br.net.convertix.gestor.dto.response.ClienteResponse;
+import br.net.convertix.gestor.dto.response.PageResponse;
 import br.net.convertix.gestor.service.ClienteService;
+import br.net.convertix.gestor.util.PaginationUtil;
 import br.net.convertix.gestor.validation.ValidationGroups;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -22,8 +24,6 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/v1/clientes")
 @RequiredArgsConstructor
@@ -32,14 +32,18 @@ public class ClienteController {
 
     private final ClienteService clienteService;
 
-    @Operation(summary = "Listar clientes ou buscar por filtros")
+    @Operation(summary = "Listar clientes ou buscar por filtros (paginado)")
     @GetMapping
-    public ResponseEntity<List<ClienteResponse>> buscar(
+    public ResponseEntity<PageResponse<ClienteResponse>> buscar(
             @Parameter(description = "Filtrar por ID do cliente")
             @RequestParam(required = false) Long id,
             @Parameter(description = "Busca parcial por nome da empresa, documento, email ou telefone")
-            @RequestParam(required = false) String query) {
-        return ResponseEntity.ok(clienteService.buscar(id, query));
+            @RequestParam(required = false) String query,
+            @Parameter(description = "Número da página (base 0)")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Itens por página (padrão 30, máximo 100)")
+            @RequestParam(defaultValue = "" + PaginationUtil.DEFAULT_SIZE) int size) {
+        return ResponseEntity.ok(clienteService.buscar(id, query, page, size));
     }
 
     @Operation(summary = "Cadastrar novo cliente")

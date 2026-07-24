@@ -3,8 +3,10 @@ package br.net.convertix.gestor.controller;
 import br.net.convertix.gestor.dto.request.AssinaturaRequest;
 import br.net.convertix.gestor.dto.request.AssinaturaUpdateRequest;
 import br.net.convertix.gestor.dto.response.AssinaturaResponse;
+import br.net.convertix.gestor.dto.response.PageResponse;
 import br.net.convertix.gestor.enums.StatusAssinatura;
 import br.net.convertix.gestor.service.AssinaturaService;
+import br.net.convertix.gestor.util.PaginationUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -24,8 +26,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/v1/assinaturas")
 @RequiredArgsConstructor
@@ -43,12 +43,16 @@ public class AssinaturaController {
         return ResponseEntity.status(HttpStatus.CREATED).body(assinaturaService.criar(request, httpRequest));
     }
 
-    @Operation(summary = "Listar assinaturas")
+    @Operation(summary = "Listar assinaturas (paginado)")
     @GetMapping
-    public ResponseEntity<List<AssinaturaResponse>> listar(
+    public ResponseEntity<PageResponse<AssinaturaResponse>> listar(
             @Parameter(description = "Filtrar por status")
-            @RequestParam(required = false) StatusAssinatura status) {
-        return ResponseEntity.ok(assinaturaService.listar(status));
+            @RequestParam(required = false) StatusAssinatura status,
+            @Parameter(description = "Número da página (base 0)")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Itens por página (padrão 30, máximo 100)")
+            @RequestParam(defaultValue = "" + PaginationUtil.DEFAULT_SIZE) int size) {
+        return ResponseEntity.ok(assinaturaService.listar(status, page, size));
     }
 
     @Operation(summary = "Consultar detalhes da assinatura (inclui histórico de cobranças e próxima cobrança)")

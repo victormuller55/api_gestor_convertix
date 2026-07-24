@@ -1,6 +1,7 @@
 package br.net.convertix.gestor.service;
 
 import br.net.convertix.gestor.dto.request.UsuarioRequest;
+import br.net.convertix.gestor.dto.response.PageResponse;
 import br.net.convertix.gestor.dto.response.UsuarioResponse;
 import br.net.convertix.gestor.entity.Usuario;
 import br.net.convertix.gestor.enums.TipoUsuario;
@@ -11,13 +12,13 @@ import br.net.convertix.gestor.repository.UsuarioRepository;
 import br.net.convertix.gestor.repository.spec.UsuarioSpecification;
 import br.net.convertix.gestor.security.SecurityUtil;
 import br.net.convertix.gestor.util.MapperUtil;
+import br.net.convertix.gestor.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -31,10 +32,11 @@ public class UsuarioService {
     private final ArquivoService arquivoService;
 
     @Transactional(readOnly = true)
-    public List<UsuarioResponse> buscar(Long id, String query, Boolean ativo) {
-        return usuarioRepository.findAll(UsuarioSpecification.comFiltros(id, query, ativo)).stream()
-                .map(MapperUtil::toResponse)
-                .toList();
+    public PageResponse<UsuarioResponse> buscar(Long id, String query, Boolean ativo, int page, int size) {
+        Page<Usuario> resultado = usuarioRepository.findAll(
+                UsuarioSpecification.comFiltros(id, query, ativo),
+                PaginationUtil.of(page, size));
+        return PaginationUtil.toResponse(resultado, MapperUtil::toResponse);
     }
 
     @Transactional

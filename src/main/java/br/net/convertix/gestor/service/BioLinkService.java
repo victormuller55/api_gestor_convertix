@@ -2,6 +2,7 @@ package br.net.convertix.gestor.service;
 
 import br.net.convertix.gestor.dto.request.BioLinkRequest;
 import br.net.convertix.gestor.dto.response.BioLinkResponse;
+import br.net.convertix.gestor.dto.response.PageResponse;
 import br.net.convertix.gestor.entity.BioLink;
 import br.net.convertix.gestor.entity.Site;
 import br.net.convertix.gestor.enums.TipoSite;
@@ -11,12 +12,12 @@ import br.net.convertix.gestor.repository.BioLinkRepository;
 import br.net.convertix.gestor.repository.SiteRepository;
 import br.net.convertix.gestor.repository.spec.BioLinkSpecification;
 import br.net.convertix.gestor.util.MapperUtil;
+import br.net.convertix.gestor.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -30,11 +31,12 @@ public class BioLinkService {
     private final ArquivoService arquivoService;
 
     @Transactional(readOnly = true)
-    public List<BioLinkResponse> buscar(Long id) {
+    public PageResponse<BioLinkResponse> buscar(Long id, int page, int size) {
         Long clienteIdFiltro = autorizacaoService.getClienteIdFiltro();
-        return bioLinkRepository.findAll(BioLinkSpecification.comFiltros(id, clienteIdFiltro)).stream()
-                .map(MapperUtil::toResponse)
-                .toList();
+        Page<BioLink> resultado = bioLinkRepository.findAll(
+                BioLinkSpecification.comFiltros(id, clienteIdFiltro),
+                PaginationUtil.of(page, size));
+        return PaginationUtil.toResponse(resultado, MapperUtil::toResponse);
     }
 
     @Transactional

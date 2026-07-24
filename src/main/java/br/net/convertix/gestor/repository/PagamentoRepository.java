@@ -19,6 +19,10 @@ public interface PagamentoRepository extends JpaRepository<Pagamento, Long>, Jpa
 
     Optional<Pagamento> findByAsaasPaymentId(String asaasPaymentId);
 
+    @Query("SELECT p FROM Pagamento p WHERE p.asaasPaymentId IS NOT NULL "
+            + "AND (:clienteId IS NULL OR p.cliente.id = :clienteId)")
+    List<Pagamento> findComAsaasPaymentId(@Param("clienteId") Long clienteId);
+
     List<Pagamento> findTop10ByClienteIdOrderByCreatedAtDesc(Long clienteId);
 
     List<Pagamento> findTop10ByOrderByCreatedAtDesc();

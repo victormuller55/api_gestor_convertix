@@ -41,24 +41,43 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .headers(headers -> headers
-                        .contentTypeOptions(Customizer.withDefaults())
-                        .frameOptions(frame -> frame.deny())
-                        .httpStrictTransportSecurity(hsts -> hsts
-                                .includeSubDomains(true)
-                                .preload(true)
-                                .maxAgeInSeconds(31536000))
-                        .referrerPolicy(referrer -> referrer.policy(
-                                ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
-                        .permissionsPolicyHeader(permissions -> permissions.policy(
-                                "geolocation=(), microphone=(), camera=(), payment=(), usb=()"))
-                        .contentSecurityPolicy(csp -> csp.policyDirectives(
-                                "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"))
-                        .cacheControl(Customizer.withDefaults())
-                )
+                .headers(headers -> {
+                    headers
+                            .contentTypeOptions(Customizer.withDefaults())
+                            .frameOptions(frame -> frame.deny())
+                            .httpStrictTransportSecurity(hsts -> hsts
+                                    .includeSubDomains(true)
+                                    .preload(true)
+                                    .maxAgeInSeconds(31536000))
+                            .referrerPolicy(referrer -> referrer.policy(
+                                    ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                            .permissionsPolicyHeader(permissions -> permissions.policy(
+                                    "geolocation=(), microphone=(), camera=(), payment=(), usb=()"))
+                            .cacheControl(Customizer.withDefaults());
+
+                    // CSP estrito quebra o Swagger UI (página em branco).
+                    // Em local (swagger ligado): permite assets do próprio host.
+                    // Em produção (swagger off): mantém CSP máximo para a API.
+                    if (swaggerEnabled) {
+                        headers.contentSecurityPolicy(csp -> csp.policyDirectives(
+                                "default-src 'self'; "
+                                        + "script-src 'self' 'unsafe-inline'; "
+                                        + "style-src 'self' 'unsafe-inline'; "
+                                        + "img-src 'self' data:; "
+                                        + "font-src 'self' data:; "
+                                        + "connect-src 'self'; "
+                                        + "frame-ancestors 'none'; "
+                                        + "base-uri 'self'; "
+                                        + "form-action 'self'"));
+                    } else {
+                        headers.contentSecurityPolicy(csp -> csp.policyDirectives(
+                                "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"));
+                    }
+                })
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers("/api/v1/auth/**").permitAll()
-                            .requestMatchers(HttpMethod.GET, "/api/v1/biolinks/publico").permitAll()
+                            .requestMatchers(HttpMethod.GET, "/api/v1/biolinks/publico", "/api/v1/biolinks/publico/**").permitAll()
+                            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                             .requestMatchers(HttpMethod.POST, "/api/v1/webhook/asaas").permitAll()
                             .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll();
 

@@ -2,6 +2,7 @@ package br.net.convertix.gestor.service;
 
 import br.net.convertix.gestor.dto.request.ClienteRequest;
 import br.net.convertix.gestor.dto.response.ClienteResponse;
+import br.net.convertix.gestor.dto.response.PageResponse;
 import br.net.convertix.gestor.entity.Cliente;
 import br.net.convertix.gestor.entity.Usuario;
 import br.net.convertix.gestor.exception.BusinessException;
@@ -12,7 +13,9 @@ import br.net.convertix.gestor.repository.UsuarioRepository;
 import br.net.convertix.gestor.repository.spec.ClienteSpecification;
 import br.net.convertix.gestor.util.DocumentoUtil;
 import br.net.convertix.gestor.util.MapperUtil;
+import br.net.convertix.gestor.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,10 +37,11 @@ public class ClienteService {
     private final SiteService siteService;
 
     @Transactional(readOnly = true)
-    public List<ClienteResponse> buscar(Long id, String query) {
-        return clienteRepository.findAll(ClienteSpecification.comFiltros(id, query)).stream()
-                .map(MapperUtil::toResponse)
-                .toList();
+    public PageResponse<ClienteResponse> buscar(Long id, String query, int page, int size) {
+        Page<Cliente> resultado = clienteRepository.findAll(
+                ClienteSpecification.comFiltros(id, query),
+                PaginationUtil.of(page, size));
+        return PaginationUtil.toResponse(resultado, MapperUtil::toResponse);
     }
 
     @Transactional(readOnly = true)

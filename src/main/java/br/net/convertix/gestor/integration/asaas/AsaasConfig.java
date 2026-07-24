@@ -3,7 +3,9 @@ package br.net.convertix.gestor.integration.asaas;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.web.client.ClientHttpRequestFactories;
 import org.springframework.boot.web.client.ClientHttpRequestFactorySettings;
 import org.springframework.context.annotation.Bean;
@@ -18,16 +20,20 @@ import java.time.Duration;
 public class AsaasConfig {
 
     @Bean
+    @Qualifier("asaasObjectMapper")
     public ObjectMapper asaasObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
         mapper.setPropertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE);
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         return mapper;
     }
 
     @Bean
-    public RestClient asaasRestClient(AsaasProperties properties, ObjectMapper asaasObjectMapper) {
+    public RestClient asaasRestClient(
+            AsaasProperties properties,
+            @Qualifier("asaasObjectMapper") ObjectMapper asaasObjectMapper) {
         ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.DEFAULTS
                 .withConnectTimeout(Duration.ofMillis(properties.getConnectTimeoutMs()))
                 .withReadTimeout(Duration.ofMillis(properties.getReadTimeoutMs()));

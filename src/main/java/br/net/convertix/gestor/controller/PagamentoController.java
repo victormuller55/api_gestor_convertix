@@ -10,6 +10,7 @@ import br.net.convertix.gestor.dto.response.PagamentoResumoResponse;
 import br.net.convertix.gestor.enums.FormaPagamento;
 import br.net.convertix.gestor.enums.StatusPagamento;
 import br.net.convertix.gestor.service.PagamentoService;
+import br.net.convertix.gestor.util.PaginationUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -74,7 +75,7 @@ public class PagamentoController {
             @RequestParam(required = false, name = "data_fim")
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "" + PaginationUtil.DEFAULT_SIZE) int size) {
         return ResponseEntity.ok(pagamentoService.listar(status, formaPagamento, dataInicio, dataFim, page, size));
     }
 
@@ -84,10 +85,14 @@ public class PagamentoController {
         return ResponseEntity.ok(pagamentoService.listarUltimos());
     }
 
-    @Operation(summary = "Histórico completo de pagamentos (tela de histórico)")
+    @Operation(summary = "Histórico completo de pagamentos (tela de histórico, paginado)")
     @GetMapping("/historico")
-    public ResponseEntity<List<PagamentoResponse>> historico() {
-        return ResponseEntity.ok(pagamentoService.historicoCompleto());
+    public ResponseEntity<PageResponse<PagamentoResponse>> historico(
+            @Parameter(description = "Número da página (base 0)")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Itens por página (padrão 30, máximo 100)")
+            @RequestParam(defaultValue = "" + PaginationUtil.DEFAULT_SIZE) int size) {
+        return ResponseEntity.ok(pagamentoService.historicoCompleto(page, size));
     }
 
     @Operation(summary = "Consultar status atualizado no Asaas e sincronizar")

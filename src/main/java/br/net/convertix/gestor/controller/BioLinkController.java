@@ -2,7 +2,9 @@ package br.net.convertix.gestor.controller;
 
 import br.net.convertix.gestor.dto.request.BioLinkRequest;
 import br.net.convertix.gestor.dto.response.BioLinkResponse;
+import br.net.convertix.gestor.dto.response.PageResponse;
 import br.net.convertix.gestor.service.BioLinkService;
+import br.net.convertix.gestor.util.PaginationUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,8 +23,6 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/v1/biolinks")
 @RequiredArgsConstructor
@@ -31,12 +31,16 @@ public class BioLinkController {
 
     private final BioLinkService bioLinkService;
 
-    @Operation(summary = "Listar biolinks ou buscar por filtros")
+    @Operation(summary = "Listar biolinks ou buscar por filtros (paginado)")
     @GetMapping
-    public ResponseEntity<List<BioLinkResponse>> buscar(
+    public ResponseEntity<PageResponse<BioLinkResponse>> buscar(
             @Parameter(description = "Filtrar por ID do biolink")
-            @RequestParam(required = false) Long id) {
-        return ResponseEntity.ok(bioLinkService.buscar(id));
+            @RequestParam(required = false) Long id,
+            @Parameter(description = "Número da página (base 0)")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Itens por página (padrão 30, máximo 100)")
+            @RequestParam(defaultValue = "" + PaginationUtil.DEFAULT_SIZE) int size) {
+        return ResponseEntity.ok(bioLinkService.buscar(id, page, size));
     }
 
     @Operation(summary = "Cadastrar novo biolink")

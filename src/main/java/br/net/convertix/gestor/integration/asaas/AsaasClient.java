@@ -3,8 +3,8 @@ package br.net.convertix.gestor.integration.asaas;
 import br.net.convertix.gestor.integration.asaas.dto.AsaasApiDtos;
 import br.net.convertix.gestor.integration.payment.PaymentGateway;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class AsaasClient implements PaymentGateway {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ISO_LOCAL_DATE;
@@ -32,6 +31,15 @@ public class AsaasClient implements PaymentGateway {
     private final RestClient asaasRestClient;
     private final AsaasProperties properties;
     private final ObjectMapper asaasObjectMapper;
+
+    public AsaasClient(
+            RestClient asaasRestClient,
+            AsaasProperties properties,
+            @Qualifier("asaasObjectMapper") ObjectMapper asaasObjectMapper) {
+        this.asaasRestClient = asaasRestClient;
+        this.properties = properties;
+        this.asaasObjectMapper = asaasObjectMapper;
+    }
 
     @Override
     public GatewayCustomer criarOuAtualizarCliente(GatewayCustomerRequest request) {

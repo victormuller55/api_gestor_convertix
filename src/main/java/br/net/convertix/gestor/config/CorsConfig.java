@@ -31,16 +31,32 @@ public class CorsConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(split(allowedOrigins));
-        configuration.setAllowedMethods(split(allowedMethods));
-        configuration.setAllowedHeaders(split(allowedHeaders));
-        configuration.setExposedHeaders(split(exposedHeaders));
-        configuration.setAllowCredentials(false);
-        configuration.setMaxAge(maxAge);
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+
+        // Rotas públicas (BioLink publicado + uploads): qualquer origem.
+        // Sem isso, o Spring responde 403 "Invalid CORS request" quando o front
+        // chama de um domínio/porta fora da lista restrita.
+        CorsConfiguration publicCors = new CorsConfiguration();
+        publicCors.setAllowedOriginPatterns(List.of("*"));
+        publicCors.setAllowedMethods(List.of("GET", "OPTIONS"));
+        publicCors.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
+        publicCors.setExposedHeaders(split(exposedHeaders));
+        publicCors.setAllowCredentials(false);
+        publicCors.setMaxAge(maxAge);
+        source.registerCorsConfiguration("/api/v1/biolinks/publico", publicCors);
+        source.registerCorsConfiguration("/api/v1/biolinks/publico/**", publicCors);
+        source.registerCorsConfiguration("/uploads/**", publicCors);
+
+        // Demais rotas da API: apenas origens configuradas (gestor / localhost).
+        CorsConfiguration privateCors = new CorsConfiguration();
+        privateCors.setAllowedOrigins(split(allowedOrigins));
+        privateCors.setAllowedMethods(split(allowedMethods));
+        privateCors.setAllowedHeaders(split(allowedHeaders));
+        privateCors.setExposedHeaders(split(exposedHeaders));
+        privateCors.setAllowCredentials(false);
+        privateCors.setMaxAge(maxAge);
+        source.registerCorsConfiguration("/**", privateCors);
+
         return source;
     }
 

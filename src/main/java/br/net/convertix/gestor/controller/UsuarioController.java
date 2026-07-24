@@ -1,8 +1,10 @@
 package br.net.convertix.gestor.controller;
 
 import br.net.convertix.gestor.dto.request.UsuarioRequest;
+import br.net.convertix.gestor.dto.response.PageResponse;
 import br.net.convertix.gestor.dto.response.UsuarioResponse;
 import br.net.convertix.gestor.service.UsuarioService;
+import br.net.convertix.gestor.util.PaginationUtil;
 import br.net.convertix.gestor.validation.ValidationGroups;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,8 +25,6 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-
 @Tag(name = "Usuario")
 @SecurityRequirement(name = "bearerAuth")
 @RestController
@@ -34,16 +34,20 @@ public class UsuarioController {
 
     private final UsuarioService usuarioService;
 
-    @Operation(summary = "Listar usuários ou buscar por filtros")
+    @Operation(summary = "Listar usuários ou buscar por filtros (paginado)")
     @GetMapping
-    public ResponseEntity<List<UsuarioResponse>> buscar(
+    public ResponseEntity<PageResponse<UsuarioResponse>> buscar(
             @Parameter(description = "Filtrar por ID do usuário")
             @RequestParam(required = false) Long id,
             @Parameter(description = "Busca parcial por nome ou email")
             @RequestParam(required = false) String query,
             @Parameter(description = "Filtrar por status ativo (true ou false)")
-            @RequestParam(required = false) Boolean ativo) {
-        return ResponseEntity.ok(usuarioService.buscar(id, query, ativo));
+            @RequestParam(required = false) Boolean ativo,
+            @Parameter(description = "Número da página (base 0)")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Itens por página (padrão 30, máximo 100)")
+            @RequestParam(defaultValue = "" + PaginationUtil.DEFAULT_SIZE) int size) {
+        return ResponseEntity.ok(usuarioService.buscar(id, query, ativo, page, size));
     }
 
     @Operation(summary = "Cadastrar novo usuário admin")

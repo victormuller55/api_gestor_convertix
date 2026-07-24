@@ -25,11 +25,11 @@ import br.net.convertix.gestor.repository.PagamentoRepository;
 import br.net.convertix.gestor.repository.SiteRepository;
 import br.net.convertix.gestor.repository.spec.PagamentoSpecification;
 import br.net.convertix.gestor.util.FinanceiroMapperUtil;
+import br.net.convertix.gestor.util.PaginationUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -211,7 +211,7 @@ public class PagamentoService {
         return FinanceiroMapperUtil.toResponse(pagamento, true);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PageResponse<PagamentoResponse> listar(
             StatusPagamento status,
             FormaPagamento formaPagamento,
@@ -220,46 +220,47 @@ public class PagamentoService {
             int page,
             int size) {
         Long clienteIdFiltro = autorizacaoService.getClienteIdFiltro();
+        sincronizarTodosAutorizados(clienteIdFiltro);
+
         LocalDateTime inicio = dataInicio != null ? dataInicio.atStartOfDay() : null;
         LocalDateTime fim = dataFim != null ? dataFim.atTime(LocalTime.MAX) : null;
 
         Page<Pagamento> resultado = pagamentoRepository.findAll(
                 PagamentoSpecification.comFiltros(clienteIdFiltro, status, formaPagamento, inicio, fim),
-                PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), Sort.by(Sort.Direction.DESC, "createdAt")));
+                PaginationUtil.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
 
-        return PageResponse.<PagamentoResponse>builder()
-                .content(resultado.getContent().stream().map(FinanceiroMapperUtil::toResponse).collect(Collectors.toList()))
-                .page(resultado.getNumber())
-                .size(resultado.getSize())
-                .totalElements(resultado.getTotalElements())
-                .totalPages(resultado.getTotalPages())
-                .build();
+        return PaginationUtil.toResponse(resultado, FinanceiroMapperUtil::toResponse);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PagamentoResponse buscarPorId(Long id) {
         Pagamento pagamento = carregarPagamentoAutorizado(id);
+        if (StringUtils.hasText(pagamento.getAsaasPaymentId())) {
+            sincronizarPagamentoComGateway(pagamento, OrigemAlteracaoStatus.SINCRONIZACAO, "Sincronização ao consultar pagamento");
+        }
         return FinanceiroMapperUtil.toResponse(pagamento, true);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PagamentoResumoResponse> listarUltimos() {
         Long clienteIdFiltro = autorizacaoService.getClienteIdFiltro();
+        sincronizarTodosAutorizados(clienteIdFiltro);
+
         List<Pagamento> pagamentos = clienteIdFiltro == null
                 ? pagamentoRepository.findTop10ByOrderByCreatedAtDesc()
                 : pagamentoRepository.findTop10ByClienteIdOrderByCreatedAtDesc(clienteIdFiltro);
         return pagamentos.stream().map(FinanceiroMapperUtil::toResumo).collect(Collectors.toList());
     }
 
-    @Transactional(readOnly = true)
-    public List<PagamentoResponse> historicoCompleto() {
+    @Transactional
+    public PageResponse<PagamentoResponse> historicoCompleto(int page, int size) {
         Long clienteIdFiltro = autorizacaoService.getClienteIdFiltro();
-        List<Pagamento> pagamentos = pagamentoRepository.findAll(
+        sincronizarTodosAutorizados(clienteIdFiltro);
+
+        Page<Pagamento> resultado = pagamentoRepository.findAll(
                 PagamentoSpecification.comFiltros(clienteIdFiltro, null, null, null, null),
-                Sort.by(Sort.Direction.DESC, "createdAt"));
-        return pagamentos.stream()
-                .map(p -> FinanceiroMapperUtil.toResponse(p, true))
-                .collect(Collectors.toList());
+                PaginationUtil.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
+        return PaginationUtil.toResponse(resultado, p -> FinanceiroMapperUtil.toResponse(p, true));
     }
 
     @Transactional
@@ -269,20 +270,53 @@ public class PagamentoService {
             throw new BusinessException("Pagamento sem identificador no Asaas");
         }
 
-        PaymentGateway.GatewayPayment remoto = paymentGateway.consultarPagamento(pagamento.getAsaasPaymentId());
-        aplicarStatusGateway(pagamento, remoto, OrigemAlteracaoStatus.SINCRONIZACAO, "Sincronização manual com Asaas");
+        sincronizarPagamentoComGateway(pagamento, OrigemAlteracaoStatus.SINCRONIZACAO, "Sincronização manual com Asaas");
+        return FinanceiroMapperUtil.toResponse(pagamento, true);
+    }
 
-        if (pagamento.getFormaPagamento() == FormaPagamento.PIX
+    private void sincronizarTodosAutorizados(Long clienteIdFiltro) {
+        List<Pagamento> pagamentos = pagamentoRepository.findComAsaasPaymentId(clienteIdFiltro);
+        for (Pagamento pagamento : pagamentos) {
+            try {
+                sincronizarPagamentoComGateway(
+                        pagamento,
+                        OrigemAlteracaoStatus.SINCRONIZACAO,
+                        "Sincronização automática ao listar pagamentos");
+            } catch (Exception ex) {
+                log.warn(
+                        "Falha ao sincronizar pagamento {} (Asaas {}): {}",
+                        pagamento.getId(),
+                        pagamento.getAsaasPaymentId(),
+                        ex.getMessage());
+            }
+        }
+    }
+
+    private void sincronizarPagamentoComGateway(
+            Pagamento pagamento,
+            OrigemAlteracaoStatus origem,
+            String mensagem) {
+        PaymentGateway.GatewayPayment remoto = paymentGateway.consultarPagamento(pagamento.getAsaasPaymentId());
+        aplicarStatusGateway(pagamento, remoto, origem, mensagem);
+
+        // QR Code PIX só existe enquanto a cobrança ainda pode ser paga.
+        if (pagamentoPodeExibirPix(pagamento)
                 && (!StringUtils.hasText(pagamento.getCodigoPix()) || !StringUtils.hasText(pagamento.getQrCode()))) {
-            PaymentGateway.GatewayPixQrCode pix = paymentGateway.consultarPixQrCode(pagamento.getAsaasPaymentId());
-            pagamento.setQrCode(pix.encodedImage());
-            pagamento.setCodigoPix(pix.payload());
+            try {
+                PaymentGateway.GatewayPixQrCode pix = paymentGateway.consultarPixQrCode(pagamento.getAsaasPaymentId());
+                pagamento.setQrCode(pix.encodedImage());
+                pagamento.setCodigoPix(pix.payload());
+            } catch (Exception ex) {
+                log.warn(
+                        "Não foi possível obter QR Code PIX do pagamento {}: {}",
+                        pagamento.getAsaasPaymentId(),
+                        ex.getMessage());
+            }
         }
 
-        pagamento = pagamentoRepository.save(pagamento);
+        pagamentoRepository.save(pagamento);
         liberacaoService.processarStatusPagamento(pagamento.getStatus(), pagamento.getSite(), pagamento.getAssinatura());
         gerarProximoPagamentoAssinaturaSeAplicavel(pagamento);
-        return FinanceiroMapperUtil.toResponse(pagamento, true);
     }
 
     @Transactional
@@ -507,6 +541,12 @@ public class PagamentoService {
         if (!StringUtils.hasText(pagamento.getAsaasPaymentId())) {
             throw new BusinessException("Pagamento sem identificador no Asaas");
         }
+    }
+
+    private boolean pagamentoPodeExibirPix(Pagamento pagamento) {
+        return pagamento.getFormaPagamento() == FormaPagamento.PIX
+                && (pagamento.getStatus() == StatusPagamento.PENDING
+                || pagamento.getStatus() == StatusPagamento.OVERDUE);
     }
 
     private PaymentGateway.GatewayCreditCard toGatewayCard(CartaoCreditoRequest card) {
