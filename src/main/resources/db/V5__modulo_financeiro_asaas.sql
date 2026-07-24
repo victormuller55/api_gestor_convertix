@@ -1,10 +1,12 @@
 -- Módulo financeiro Asaas
 -- Com ddl-auto=update o Hibernate também cria/atualiza as tabelas a partir das entities.
+-- MySQL antigo NÃO suporte "ADD COLUMN IF NOT EXISTS" — use o DatabaseSchemaMigrator
+-- ou rode o ALTER simples abaixo (ignore erro se a coluna já existir).
 
 ALTER TABLE clientes
-    ADD COLUMN IF NOT EXISTS asaas_customer_id VARCHAR(255) NULL;
+    ADD COLUMN asaas_customer_id VARCHAR(255) NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_clientes_asaas_customer_id ON clientes (asaas_customer_id);
+CREATE UNIQUE INDEX uk_clientes_asaas_customer_id ON clientes (asaas_customer_id);
 
 CREATE TABLE IF NOT EXISTS assinaturas (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,

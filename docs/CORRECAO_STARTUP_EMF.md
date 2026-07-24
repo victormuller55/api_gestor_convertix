@@ -68,9 +68,19 @@ Pasta `src/main/resources/db/` só documenta SQL. Sem Flyway, nada roda sozinho.
 
 ## Se quiser garantir o schema manualmente no MySQL
 
+Seu MySQL **não** aceita `ADD COLUMN IF NOT EXISTS`. Use:
+
 ```sql
 ALTER TABLE clientes
-    ADD COLUMN IF NOT EXISTS asaas_customer_id VARCHAR(255) NULL;
+    ADD COLUMN asaas_customer_id VARCHAR(255) NULL;
+```
+
+Se der erro de coluna duplicada, a coluna já existe — pode ignorar.
+
+Opcional (índice + forma_pagamento):
+
+```sql
+CREATE UNIQUE INDEX uk_clientes_asaas_customer_id ON clientes (asaas_customer_id);
 
 ALTER TABLE assinaturas
     MODIFY COLUMN forma_pagamento VARCHAR(50) NULL;
