@@ -5,8 +5,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -19,11 +19,15 @@ import java.util.List;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UsuarioRepository usuarioRepository;
+
+    public JwtAuthenticationFilter(JwtService jwtService, @Lazy UsuarioRepository usuarioRepository) {
+        this.jwtService = jwtService;
+        this.usuarioRepository = usuarioRepository;
+    }
 
     @Override
     protected void doFilterInternal(

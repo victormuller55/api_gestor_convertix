@@ -51,7 +51,7 @@ public class HistoricoStatusPagamento {
     @Column(nullable = false)
     private OrigemAlteracaoStatus origem;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(length = 65535)
     private String mensagem;
 
     @CreationTimestamp

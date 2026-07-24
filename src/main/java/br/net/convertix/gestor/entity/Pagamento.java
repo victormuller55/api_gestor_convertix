@@ -72,10 +72,10 @@ public class Pagamento {
 
     private Integer parcelas;
 
-    @Column(name = "qr_code", columnDefinition = "TEXT")
+    @Column(name = "qr_code", length = 65535)
     private String qrCode;
 
-    @Column(name = "codigo_pix", columnDefinition = "TEXT")
+    @Column(name = "codigo_pix", length = 65535)
     private String codigoPix;
 
     @Column(name = "invoice_url", length = 500)
@@ -90,7 +90,7 @@ public class Pagamento {
     @Column(name = "data_confirmacao")
     private LocalDateTime dataConfirmacao;
 
-    @Column(name = "mensagem_asaas", columnDefinition = "TEXT")
+    @Column(name = "mensagem_asaas", length = 65535)
     private String mensagemAsaas;
 
     @Column(name = "external_reference")

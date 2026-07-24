@@ -9,6 +9,10 @@ import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+/**
+ * Migrations idempotentes via JDBC para ambientes onde os arquivos db/V*.sql
+ * não são executados automaticamente (Flyway/Liquibase não estão no classpath).
+ */
 @Slf4j
 @Component
 @Profile("!test")
@@ -22,6 +26,9 @@ public class DatabaseSchemaMigrator implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         migrarClientesDocumento();
         migrarBioLinkItemIcone();
+        garantirColunaAsaasCustomerId();
+        garantirFormaPagamentoOpcional("assinaturas");
+        garantirFormaPagamentoOpcional("pagamentos");
     }
 
     private void migrarClientesDocumento() {
@@ -66,6 +73,42 @@ public class DatabaseSchemaMigrator implements ApplicationRunner {
                 """);
     }
 
+    private void garantirColunaAsaasCustomerId() {
+        if (!tabelaExiste("clientes") || colunaExiste("clientes", "asaas_customer_id")) {
+            return;
+        }
+
+        log.info("Adicionando coluna clientes.asaas_customer_id");
+        jdbcTemplate.execute("ALTER TABLE clientes ADD COLUMN asaas_customer_id VARCHAR(255) NULL");
+
+        if (!indiceExiste("clientes", "uk_clientes_asaas_customer_id")) {
+            jdbcTemplate.execute(
+                    "CREATE UNIQUE INDEX uk_clientes_asaas_customer_id ON clientes (asaas_customer_id)");
+        }
+    }
+
+    private void garantirFormaPagamentoOpcional(String tabela) {
+        if (!tabelaExiste(tabela) || !colunaExiste(tabela, "forma_pagamento")) {
+            return;
+        }
+
+        Boolean nullable = jdbcTemplate.query(
+                """
+                SELECT is_nullable
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = ?
+                  AND column_name = 'forma_pagamento'
+                """,
+                rs -> rs.next() ? "YES".equalsIgnoreCase(rs.getString(1)) : Boolean.TRUE,
+                tabela);
+
+        if (Boolean.FALSE.equals(nullable)) {
+            log.info("Alterando {}.forma_pagamento para NULL", tabela);
+            jdbcTemplate.execute("ALTER TABLE " + tabela + " MODIFY COLUMN forma_pagamento VARCHAR(50) NULL");
+        }
+    }
+
     private boolean tabelaExiste(String tabela) {
         Integer count = jdbcTemplate.queryForObject(
                 """
@@ -91,6 +134,21 @@ public class DatabaseSchemaMigrator implements ApplicationRunner {
                 Integer.class,
                 tabela,
                 coluna);
+        return count != null && count > 0;
+    }
+
+    private boolean indiceExiste(String tabela, String indice) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.statistics
+                WHERE table_schema = DATABASE()
+                  AND table_name = ?
+                  AND index_name = ?
+                """,
+                Integer.class,
+                tabela,
+                indice);
         return count != null && count > 0;
     }
 }

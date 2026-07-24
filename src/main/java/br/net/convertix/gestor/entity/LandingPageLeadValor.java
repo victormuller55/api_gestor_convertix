@@ -40,6 +40,6 @@ public class LandingPageLeadValor {
     @JoinColumn(name = "campo_id", nullable = false)
     private LandingPageCampo campo;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(nullable = false, length = 65535)
     private String valor;
 }

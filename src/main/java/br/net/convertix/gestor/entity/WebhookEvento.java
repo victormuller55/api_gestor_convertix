@@ -31,17 +31,18 @@ public class WebhookEvento {
     @Column(name = "event_id", unique = true)
     private String eventId;
 
-    @Column(nullable = false)
+    /** Coluna "event" é palavra reservada no MySQL — auto_quote_keyword=true no Hibernate. */
+    @Column(name = "event", nullable = false, length = 100)
     private String event;
 
-    @Column(nullable = false, columnDefinition = "LONGTEXT")
+    @Column(nullable = false, length = 65535)
     private String payload;
 
     @Column(nullable = false)
     @Builder.Default
     private Boolean processado = false;
 
-    @Column(name = "mensagem_erro", columnDefinition = "TEXT")
+    @Column(name = "mensagem_erro", length = 65535)
     private String mensagemErro;
 
     @CreationTimestamp

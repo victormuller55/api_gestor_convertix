@@ -76,7 +76,7 @@ public class Assinatura {
     @Column(name = "external_reference")
     private String externalReference;
 
-    @Column(name = "mensagem_asaas", columnDefinition = "TEXT")
+    @Column(name = "mensagem_asaas", length = 65535)
     private String mensagemAsaas;
 
     @CreationTimestamp
