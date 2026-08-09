@@ -2,6 +2,7 @@ package br.net.convertix.gestor.dto.response;
 
 import br.net.convertix.gestor.enums.FormaPagamento;
 import br.net.convertix.gestor.enums.StatusPagamento;
+import br.net.convertix.gestor.enums.TipoSite;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import lombok.AllArgsConstructor;
@@ -27,6 +28,8 @@ public class PagamentoResponse {
     private Long clienteId;
     private String clienteNomeEmpresa;
     private Long siteId;
+    private String siteNome;
+    private TipoSite siteTipo;
     private Long assinaturaId;
     private String asaasPaymentId;
     private BigDecimal valor;

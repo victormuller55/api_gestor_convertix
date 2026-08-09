@@ -7,6 +7,7 @@ import br.net.convertix.gestor.dto.response.PagamentoResumoResponse;
 import br.net.convertix.gestor.entity.Assinatura;
 import br.net.convertix.gestor.entity.HistoricoStatusPagamento;
 import br.net.convertix.gestor.entity.Pagamento;
+import br.net.convertix.gestor.entity.Site;
 import lombok.experimental.UtilityClass;
 
 import java.util.Collections;
@@ -25,11 +26,15 @@ public class FinanceiroMapperUtil {
             return null;
         }
 
+        Site site = resolverSite(pagamento);
+
         return PagamentoResponse.builder()
                 .id(pagamento.getId())
                 .clienteId(pagamento.getCliente() != null ? pagamento.getCliente().getId() : null)
                 .clienteNomeEmpresa(pagamento.getCliente() != null ? pagamento.getCliente().getNomeEmpresa() : null)
-                .siteId(pagamento.getSite() != null ? pagamento.getSite().getId() : null)
+                .siteId(site != null ? site.getId() : (pagamento.getSite() != null ? pagamento.getSite().getId() : null))
+                .siteNome(site != null ? site.getNome() : null)
+                .siteTipo(site != null ? site.getTipo() : null)
                 .assinaturaId(pagamento.getAssinatura() != null ? pagamento.getAssinatura().getId() : null)
                 .asaasPaymentId(pagamento.getAsaasPaymentId())
                 .valor(pagamento.getValor())
@@ -51,6 +56,20 @@ public class FinanceiroMapperUtil {
                         ? toHistoricoList(pagamento.getHistoricoStatus())
                         : null)
                 .build();
+    }
+
+    /**
+     * Site direto do pagamento ou, se ausente, o site da assinatura vinculada.
+     */
+    private Site resolverSite(Pagamento pagamento) {
+        if (pagamento.getSite() != null) {
+            return pagamento.getSite();
+        }
+        Assinatura assinatura = pagamento.getAssinatura();
+        if (assinatura != null && assinatura.getSite() != null) {
+            return assinatura.getSite();
+        }
+        return null;
     }
 
     public PagamentoResumoResponse toResumo(Pagamento pagamento) {
