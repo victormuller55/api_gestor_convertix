@@ -92,7 +92,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private LimitRule resolverRegra(String path, String method) {
-        if ("POST".equalsIgnoreCase(method) && path.endsWith("/api/v1/auth/login")) {
+        if ("POST".equalsIgnoreCase(method) && (
+                path.endsWith("/api/v1/auth/login")
+                        || path.endsWith("/api/v1/auth/recuperar-senha")
+                        || path.endsWith("/api/v1/auth/verificar-codigo")
+                        || path.endsWith("/api/v1/auth/redefinir-senha"))) {
             return new LimitRule("LOGIN", loginPerMinute);
         }
         if ("POST".equalsIgnoreCase(method) && (
