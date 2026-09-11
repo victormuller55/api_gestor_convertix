@@ -4,6 +4,7 @@ import br.net.convertix.gestor.dto.response.AssinaturaResponse;
 import br.net.convertix.gestor.dto.response.HistoricoStatusPagamentoResponse;
 import br.net.convertix.gestor.dto.response.PagamentoResponse;
 import br.net.convertix.gestor.dto.response.PagamentoResumoResponse;
+import br.net.convertix.gestor.entity.AplicativoMobile;
 import br.net.convertix.gestor.entity.Assinatura;
 import br.net.convertix.gestor.entity.HistoricoStatusPagamento;
 import br.net.convertix.gestor.entity.Pagamento;
@@ -27,6 +28,13 @@ public class FinanceiroMapperUtil {
         }
 
         Site site = resolverSite(pagamento);
+        AplicativoMobile aplicativo = site == null ? resolverAplicativo(pagamento) : null;
+        String produtoNome = site != null
+                ? site.getNome()
+                : (aplicativo != null ? aplicativo.getNome() : null);
+        String produtoTipo = site != null && site.getTipo() != null
+                ? site.getTipo().name()
+                : (aplicativo != null ? "APLICATIVO_MOBILE" : null);
 
         return PagamentoResponse.builder()
                 .id(pagamento.getId())
@@ -35,6 +43,10 @@ public class FinanceiroMapperUtil {
                 .siteId(site != null ? site.getId() : (pagamento.getSite() != null ? pagamento.getSite().getId() : null))
                 .siteNome(site != null ? site.getNome() : null)
                 .siteTipo(site != null ? site.getTipo() : null)
+                .aplicativoMobileId(aplicativo != null ? aplicativo.getId() : null)
+                .aplicativoMobileNome(aplicativo != null ? aplicativo.getNome() : null)
+                .produtoNome(produtoNome)
+                .produtoTipo(produtoTipo)
                 .assinaturaId(pagamento.getAssinatura() != null ? pagamento.getAssinatura().getId() : null)
                 .asaasPaymentId(pagamento.getAsaasPaymentId())
                 .valor(pagamento.getValor())
@@ -68,6 +80,17 @@ public class FinanceiroMapperUtil {
         Assinatura assinatura = pagamento.getAssinatura();
         if (assinatura != null && assinatura.getSite() != null) {
             return assinatura.getSite();
+        }
+        return null;
+    }
+
+    /**
+     * Aplicativo da assinatura vinculada ao pagamento, quando a cobrança não é de um site.
+     */
+    private AplicativoMobile resolverAplicativo(Pagamento pagamento) {
+        Assinatura assinatura = pagamento.getAssinatura();
+        if (assinatura != null && assinatura.getAplicativoMobile() != null) {
+            return assinatura.getAplicativoMobile();
         }
         return null;
     }

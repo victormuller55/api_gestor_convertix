@@ -30,6 +30,10 @@ public class PagamentoResponse {
     private Long siteId;
     private String siteNome;
     private TipoSite siteTipo;
+    private Long aplicativoMobileId;
+    private String aplicativoMobileNome;
+    private String produtoNome;
+    private String produtoTipo;
     private Long assinaturaId;
     private String asaasPaymentId;
     private BigDecimal valor;
