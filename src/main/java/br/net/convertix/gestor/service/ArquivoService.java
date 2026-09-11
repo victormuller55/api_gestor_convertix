@@ -20,19 +20,25 @@ import java.util.UUID;
 @Slf4j
 public class ArquivoService {
 
-    private static final Set<String> TIPOS_PERMITIDOS = Set.of(
+    private static final Set<String> TIPOS_IMAGEM = Set.of(
             "image/jpeg",
             "image/png",
             "image/webp"
     );
 
+    private static final Set<String> TIPOS_PDF = Set.of(
+            "application/pdf"
+    );
+
     private static final Map<String, String> EXTENSAO_POR_TIPO = Map.of(
             "image/jpeg", ".jpg",
             "image/png", ".png",
-            "image/webp", ".webp"
+            "image/webp", ".webp",
+            "application/pdf", ".pdf"
     );
 
     private static final String URL_PREFIX = "/uploads/";
+    private static final long TAMANHO_MAXIMO_BYTES = 5L * 1024 * 1024;
 
     private final Path diretorioBase;
 
@@ -46,13 +52,26 @@ public class ArquivoService {
     }
 
     public String salvar(MultipartFile arquivo, String subpasta) {
+        return persistir(arquivo, subpasta, TIPOS_IMAGEM, "Formato de imagem não suportado. Use JPEG, PNG ou WebP");
+    }
+
+    public String salvarPdf(MultipartFile arquivo, String subpasta) {
+        validarExtensaoPdf(arquivo);
+        return persistir(arquivo, subpasta, TIPOS_PDF, "O documento de requisitos deve ser um arquivo PDF");
+    }
+
+    private String persistir(MultipartFile arquivo, String subpasta, Set<String> tiposPermitidos, String mensagemTipo) {
         if (arquivo == null || arquivo.isEmpty()) {
             return null;
         }
 
+        if (arquivo.getSize() > TAMANHO_MAXIMO_BYTES) {
+            throw new BusinessException("Arquivo excede o tamanho máximo permitido de 5 MB");
+        }
+
         String contentType = normalizarContentType(arquivo.getContentType());
-        if (contentType == null || !TIPOS_PERMITIDOS.contains(contentType)) {
-            throw new BusinessException("Formato de imagem não suportado. Use JPEG, PNG ou WebP");
+        if (contentType == null || !tiposPermitidos.contains(contentType)) {
+            throw new BusinessException(mensagemTipo);
         }
 
         String tipoDetectado = detectarTipoPorAssinatura(arquivo);
@@ -80,9 +99,11 @@ public class ArquivoService {
             }
             arquivo.transferTo(caminhoArquivo);
             return URL_PREFIX + subpasta + "/" + nomeArquivo;
+        } catch (BusinessException e) {
+            throw e;
         } catch (IOException e) {
             log.error("Erro ao salvar arquivo em pasta controlada");
-            throw new BusinessException("Erro ao salvar a imagem");
+            throw new BusinessException("Erro ao salvar o arquivo");
         }
     }
 
@@ -110,6 +131,18 @@ public class ArquivoService {
             return null;
         }
         return contentType.split(";")[0].trim().toLowerCase(Locale.ROOT);
+    }
+
+    private void validarExtensaoPdf(MultipartFile arquivo) {
+        String nomeOriginal = arquivo == null ? null : arquivo.getOriginalFilename();
+        if (nomeOriginal == null || nomeOriginal.isBlank()) {
+            throw new BusinessException("O documento de requisitos deve ser um arquivo PDF");
+        }
+        String normalizado = nomeOriginal.replace('\\', '/');
+        String nome = normalizado.substring(normalizado.lastIndexOf('/') + 1).toLowerCase(Locale.ROOT);
+        if (!nome.endsWith(".pdf") || nome.equals(".pdf")) {
+            throw new BusinessException("O documento de requisitos deve ser um arquivo PDF");
+        }
     }
 
     private boolean contemPathTraversal(String nome) {
@@ -150,6 +183,14 @@ public class ArquivoService {
                     && header[10] == 'B'
                     && header[11] == 'P') {
                 return "image/webp";
+            }
+            // PDF: %PDF
+            if (header.length >= 4
+                    && header[0] == '%'
+                    && header[1] == 'P'
+                    && header[2] == 'D'
+                    && header[3] == 'F') {
+                return "application/pdf";
             }
             return null;
         } catch (IOException e) {

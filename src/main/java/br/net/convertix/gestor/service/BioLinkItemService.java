@@ -13,7 +13,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -82,5 +88,30 @@ public class BioLinkItemService {
         }
 
         bioLinkItemRepository.delete(item);
+    }
+
+    @Transactional
+    public List<BioLinkItemResponse> reordenar(Long bioLinkId, List<Long> ids) {
+        autorizacaoService.validarAcessoBioLink(bioLinkId);
+
+        List<BioLinkItem> itens = bioLinkItemRepository.findByBioLinkIdOrderByOrdemAsc(bioLinkId);
+        Set<Long> atuais = itens.stream().map(BioLinkItem::getId).collect(Collectors.toSet());
+        List<Long> informados = ids == null ? List.of() : ids.stream().filter(Objects::nonNull).toList();
+
+        if (informados.size() != atuais.size() || !atuais.equals(new HashSet<>(informados))) {
+            throw new BusinessException("A lista de itens para reordenar é inválida");
+        }
+
+        Map<Long, BioLinkItem> porId = itens.stream()
+                .collect(Collectors.toMap(BioLinkItem::getId, Function.identity()));
+
+        for (int i = 0; i < informados.size(); i++) {
+            porId.get(informados.get(i)).setOrdem(i + 1);
+        }
+
+        return bioLinkItemRepository.saveAll(itens).stream()
+                .sorted((a, b) -> Integer.compare(a.getOrdem(), b.getOrdem()))
+                .map(MapperUtil::toResponse)
+                .toList();
     }
 }

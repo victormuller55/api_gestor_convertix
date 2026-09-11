@@ -47,6 +47,10 @@ public class Assinatura {
     @JoinColumn(name = "site_id")
     private Site site;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "aplicativo_mobile_id")
+    private AplicativoMobile aplicativoMobile;
+
     @Column(name = "asaas_subscription_id", unique = true)
     private String asaasSubscriptionId;
 

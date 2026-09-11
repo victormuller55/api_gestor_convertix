@@ -57,6 +57,10 @@ public class Cliente {
     @Builder.Default
     private List<Site> sites = new ArrayList<>();
 
+    @OneToMany(mappedBy = "cliente")
+    @Builder.Default
+    private List<AplicativoMobile> aplicativosMobile = new ArrayList<>();
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

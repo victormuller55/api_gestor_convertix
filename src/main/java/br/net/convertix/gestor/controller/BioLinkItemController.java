@@ -1,6 +1,7 @@
 package br.net.convertix.gestor.controller;
 
 import br.net.convertix.gestor.dto.request.BioLinkItemRequest;
+import br.net.convertix.gestor.dto.request.BioLinkItensOrdemRequest;
 import br.net.convertix.gestor.dto.response.BioLinkItemResponse;
 import br.net.convertix.gestor.service.BioLinkItemService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/biolinks/itens")
@@ -60,5 +63,13 @@ public class BioLinkItemController {
             @RequestParam Long id) {
         bioLinkItemService.excluir(biolinkId, id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Reordenar itens do BioLink")
+    @PutMapping("/reordenar")
+    public ResponseEntity<List<BioLinkItemResponse>> reordenar(
+            @RequestParam(name = "biolink_id") Long biolinkId,
+            @Valid @RequestBody BioLinkItensOrdemRequest request) {
+        return ResponseEntity.ok(bioLinkItemService.reordenar(biolinkId, request.getIds()));
     }
 }

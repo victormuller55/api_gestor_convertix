@@ -35,6 +35,7 @@ public class ClienteService {
     private final PasswordEncoder passwordEncoder;
     private final ArquivoService arquivoService;
     private final SiteService siteService;
+    private final AplicativoMobileService aplicativoMobileService;
 
     @Transactional(readOnly = true)
     public PageResponse<ClienteResponse> buscar(Long id, String query, int page, int size) {
@@ -119,6 +120,8 @@ public class ClienteService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado com id: " + id));
 
         Usuario usuario = cliente.getUsuario();
+
+        aplicativoMobileService.excluirPorCliente(id);
 
         siteRepository.findByClienteId(id).stream()
                 .map(site -> site.getId())

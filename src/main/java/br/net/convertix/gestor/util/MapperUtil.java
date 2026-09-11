@@ -1,5 +1,6 @@
 package br.net.convertix.gestor.util;
 
+import br.net.convertix.gestor.dto.request.AplicativoMobileRequest;
 import br.net.convertix.gestor.dto.request.BioLinkItemRequest;
 import br.net.convertix.gestor.dto.request.BioLinkRequest;
 import br.net.convertix.gestor.dto.request.ClienteRequest;
@@ -9,6 +10,7 @@ import br.net.convertix.gestor.dto.request.LandingPageRequest;
 import br.net.convertix.gestor.dto.request.SiteDominioRequest;
 import br.net.convertix.gestor.dto.request.SiteRequest;
 import br.net.convertix.gestor.dto.request.UsuarioRequest;
+import br.net.convertix.gestor.dto.response.AplicativoMobileResponse;
 import br.net.convertix.gestor.dto.response.BioLinkItemResponse;
 import br.net.convertix.gestor.dto.response.BioLinkResponse;
 import br.net.convertix.gestor.dto.response.ClienteResponse;
@@ -20,6 +22,7 @@ import br.net.convertix.gestor.dto.response.LoginResponse;
 import br.net.convertix.gestor.dto.response.SiteDominioResponse;
 import br.net.convertix.gestor.dto.response.SiteResponse;
 import br.net.convertix.gestor.dto.response.UsuarioResponse;
+import br.net.convertix.gestor.entity.AplicativoMobile;
 import br.net.convertix.gestor.entity.BioLink;
 import br.net.convertix.gestor.entity.BioLinkItem;
 import br.net.convertix.gestor.entity.Cliente;
@@ -206,6 +209,44 @@ public class MapperUtil {
         entity.setDominio(request.getDominio());
         entity.setSubdominio(request.getSubdominio());
         entity.setStatus(request.getStatus());
+    }
+
+    public AplicativoMobileResponse toResponse(AplicativoMobile entity) {
+        return AplicativoMobileResponse.builder()
+                .id(entity.getId())
+                .clienteId(entity.getCliente().getId())
+                .clienteNomeEmpresa(entity.getCliente().getNomeEmpresa())
+                .nome(entity.getNome())
+                .descricao(entity.getDescricao())
+                .status(entity.getStatus())
+                .packageAndroid(entity.getPackageAndroid())
+                .bundleIdIos(entity.getBundleIdIos())
+                .versaoAndroid(entity.getVersaoAndroid())
+                .versaoIos(entity.getVersaoIos())
+                .urlAndroid(entity.getUrlAndroid())
+                .urlIos(entity.getUrlIos())
+                .iconeUrl(entity.getIconeUrl())
+                .documentoRequisitosUrl(entity.getDocumentoRequisitosUrl())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
+
+    public void updateEntity(AplicativoMobile entity, AplicativoMobileRequest request) {
+        entity.setNome(request.getNome());
+        entity.setDescricao(blankToNull(request.getDescricao()));
+        entity.setStatus(request.getStatus());
+        entity.setPackageAndroid(blankToNull(request.getPackageAndroid()));
+        entity.setBundleIdIos(blankToNull(request.getBundleIdIos()));
+        entity.setVersaoAndroid(blankToNull(request.getVersaoAndroid()));
+        entity.setVersaoIos(blankToNull(request.getVersaoIos()));
+        entity.setUrlAndroid(blankToNull(request.getUrlAndroid()));
+        entity.setUrlIos(blankToNull(request.getUrlIos()));
+        entity.setIconeUrl(blankToNull(request.getIconeUrl()));
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     public BioLinkResponse toResponse(BioLink entity) {

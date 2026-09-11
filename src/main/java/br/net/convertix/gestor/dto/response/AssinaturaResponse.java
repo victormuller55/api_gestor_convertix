@@ -31,6 +31,8 @@ public class AssinaturaResponse {
     private Long siteId;
     private String siteNome;
     private TipoSite siteTipo;
+    private Long aplicativoMobileId;
+    private String aplicativoMobileNome;
     private String asaasSubscriptionId;
     private BigDecimal valor;
     private String descricao;

@@ -38,4 +38,6 @@ public class AssinaturaUpdateRequest {
     private Boolean updatePendingPayments;
 
     private Long siteId;
+
+    private Long aplicativoMobileId;
 }

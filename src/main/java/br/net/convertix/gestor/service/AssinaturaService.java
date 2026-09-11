@@ -6,6 +6,7 @@ import br.net.convertix.gestor.dto.request.CartaoCreditoRequest;
 import br.net.convertix.gestor.dto.request.CartaoTitularRequest;
 import br.net.convertix.gestor.dto.response.AssinaturaResponse;
 import br.net.convertix.gestor.dto.response.PageResponse;
+import br.net.convertix.gestor.entity.AplicativoMobile;
 import br.net.convertix.gestor.entity.Assinatura;
 import br.net.convertix.gestor.entity.Cliente;
 import br.net.convertix.gestor.entity.Pagamento;
@@ -15,6 +16,7 @@ import br.net.convertix.gestor.enums.StatusAssinatura;
 import br.net.convertix.gestor.exception.BusinessException;
 import br.net.convertix.gestor.exception.ResourceNotFoundException;
 import br.net.convertix.gestor.integration.payment.PaymentGateway;
+import br.net.convertix.gestor.repository.AplicativoMobileRepository;
 import br.net.convertix.gestor.repository.AssinaturaRepository;
 import br.net.convertix.gestor.repository.ClienteRepository;
 import br.net.convertix.gestor.repository.PagamentoRepository;
@@ -42,6 +44,7 @@ public class AssinaturaService {
     private final PagamentoRepository pagamentoRepository;
     private final ClienteRepository clienteRepository;
     private final SiteRepository siteRepository;
+    private final AplicativoMobileRepository aplicativoMobileRepository;
     private final AutorizacaoService autorizacaoService;
     private final PagamentoService pagamentoService;
     private final PaymentGateway paymentGateway;
@@ -60,12 +63,10 @@ public class AssinaturaService {
         Cliente cliente = clienteRepository.findById(clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente não encontrado com id: " + clienteId));
 
-        Site site = null;
-        if (request.getSiteId() != null) {
-            autorizacaoService.validarAcessoSite(request.getSiteId());
-            site = siteRepository.findById(request.getSiteId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Site não encontrado com id: " + request.getSiteId()));
-        }
+        Site site = carregarSite(request.getSiteId());
+        AplicativoMobile aplicativo = carregarAplicativo(request.getAplicativoMobileId());
+        validarVinculoAssinatura(cliente.getId(), site, aplicativo);
+        validarAplicativoSemAssinaturaAtiva(aplicativo, null);
 
         String customerId = pagamentoService.garantirCustomerAsaas(cliente);
         String remoteIp = resolverIp(httpRequest);
@@ -88,6 +89,7 @@ public class AssinaturaService {
         Assinatura assinatura = Assinatura.builder()
                 .cliente(cliente)
                 .site(site)
+                .aplicativoMobile(aplicativo)
                 .asaasSubscriptionId(gateway.id())
                 .valor(request.getValor())
                 .descricao(request.getDescricao())
@@ -158,10 +160,24 @@ public class AssinaturaService {
             assinatura.setProximaCobranca(request.getProximaCobranca());
         }
         if (request.getSiteId() != null) {
-            autorizacaoService.validarAcessoSite(request.getSiteId());
-            Site site = siteRepository.findById(request.getSiteId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Site não encontrado com id: " + request.getSiteId()));
+            Site site = carregarSite(request.getSiteId());
+            AplicativoMobile aplicativo = request.getAplicativoMobileId() != null
+                    ? carregarAplicativo(request.getAplicativoMobileId())
+                    : assinatura.getAplicativoMobile();
+            validarVinculoAssinatura(assinatura.getCliente().getId(), site, aplicativo);
+            validarAplicativoSemAssinaturaAtiva(aplicativo, assinatura.getId());
             assinatura.setSite(site);
+            if (request.getAplicativoMobileId() != null) {
+                assinatura.setAplicativoMobile(aplicativo);
+            } else if (site != null) {
+                assinatura.setAplicativoMobile(null);
+            }
+        } else if (request.getAplicativoMobileId() != null) {
+            AplicativoMobile aplicativo = carregarAplicativo(request.getAplicativoMobileId());
+            validarVinculoAssinatura(assinatura.getCliente().getId(), null, aplicativo);
+            validarAplicativoSemAssinaturaAtiva(aplicativo, assinatura.getId());
+            assinatura.setAplicativoMobile(aplicativo);
+            assinatura.setSite(null);
         }
 
         assinatura.setStatus(remoto.status());
@@ -227,6 +243,52 @@ public class AssinaturaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Assinatura não encontrada com id: " + id));
         autorizacaoService.validarAcessoCliente(assinatura.getCliente().getId());
         return assinatura;
+    }
+
+    private Site carregarSite(Long siteId) {
+        if (siteId == null) {
+            return null;
+        }
+        autorizacaoService.validarAcessoSite(siteId);
+        return siteRepository.findById(siteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Site não encontrado com id: " + siteId));
+    }
+
+    private AplicativoMobile carregarAplicativo(Long aplicativoMobileId) {
+        if (aplicativoMobileId == null) {
+            return null;
+        }
+        autorizacaoService.validarAcessoAplicativoMobile(aplicativoMobileId);
+        return aplicativoMobileRepository.findById(aplicativoMobileId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Aplicativo mobile não encontrado com id: " + aplicativoMobileId));
+    }
+
+    private void validarVinculoAssinatura(Long clienteId, Site site, AplicativoMobile aplicativo) {
+        if (site != null && aplicativo != null) {
+            throw new BusinessException("Informe somente o site ou o aplicativo mobile");
+        }
+        if (site != null && site.getCliente() != null && !site.getCliente().getId().equals(clienteId)) {
+            throw new BusinessException("O site não pertence ao cliente informado");
+        }
+        if (aplicativo != null && aplicativo.getCliente() != null
+                && !aplicativo.getCliente().getId().equals(clienteId)) {
+            throw new BusinessException("O aplicativo não pertence ao cliente informado");
+        }
+    }
+
+    private void validarAplicativoSemAssinaturaAtiva(AplicativoMobile aplicativo, Long assinaturaIdExcluir) {
+        if (aplicativo == null || aplicativo.getId() == null) {
+            return;
+        }
+        boolean existe = assinaturaIdExcluir == null
+                ? assinaturaRepository.existsByAplicativoMobileIdAndStatus(
+                        aplicativo.getId(), StatusAssinatura.ACTIVE)
+                : assinaturaRepository.existsByAplicativoMobileIdAndStatusAndIdNot(
+                        aplicativo.getId(), StatusAssinatura.ACTIVE, assinaturaIdExcluir);
+        if (existe) {
+            throw new BusinessException("Já existe uma assinatura ativa para este aplicativo");
+        }
     }
 
     private void validarCartaoSeNecessario(AssinaturaRequest request) {

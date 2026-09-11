@@ -29,6 +29,8 @@ public class DatabaseSchemaMigrator implements ApplicationRunner {
         garantirColunaAsaasCustomerId();
         garantirFormaPagamentoOpcional("assinaturas");
         garantirFormaPagamentoOpcional("pagamentos");
+        garantirTabelaAplicativosMobile();
+        garantirColunaAssinaturaAplicativoMobile();
     }
 
     private void migrarClientesDocumento() {
@@ -109,6 +111,66 @@ public class DatabaseSchemaMigrator implements ApplicationRunner {
         }
     }
 
+    private void garantirTabelaAplicativosMobile() {
+        if (tabelaExiste("aplicativos_mobile") || !tabelaExiste("clientes")) {
+            return;
+        }
+
+        log.info("Criando tabela aplicativos_mobile");
+        jdbcTemplate.execute(
+                """
+                CREATE TABLE aplicativos_mobile (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    cliente_id BIGINT NOT NULL,
+                    nome VARCHAR(150) NOT NULL,
+                    descricao VARCHAR(500) NULL,
+                    status VARCHAR(50) NOT NULL,
+                    package_android VARCHAR(255) NULL,
+                    bundle_id_ios VARCHAR(255) NULL,
+                    versao_android VARCHAR(50) NULL,
+                    versao_ios VARCHAR(50) NULL,
+                    url_android VARCHAR(500) NULL,
+                    url_ios VARCHAR(500) NULL,
+                    icone_url VARCHAR(500) NULL,
+                    documento_requisitos_url VARCHAR(500) NULL,
+                    created_at DATETIME(6) NOT NULL,
+                    updated_at DATETIME(6) NOT NULL,
+                    CONSTRAINT fk_aplicativos_mobile_cliente FOREIGN KEY (cliente_id) REFERENCES clientes (id)
+                )
+                """);
+
+        if (!indiceExiste("aplicativos_mobile", "idx_aplicativos_mobile_cliente")) {
+            jdbcTemplate.execute(
+                    "CREATE INDEX idx_aplicativos_mobile_cliente ON aplicativos_mobile (cliente_id)");
+        }
+    }
+
+    private void garantirColunaAssinaturaAplicativoMobile() {
+        if (!tabelaExiste("assinaturas") || !tabelaExiste("aplicativos_mobile")) {
+            return;
+        }
+
+        if (!colunaExiste("assinaturas", "aplicativo_mobile_id")) {
+            log.info("Adicionando coluna assinaturas.aplicativo_mobile_id");
+            jdbcTemplate.execute("ALTER TABLE assinaturas ADD COLUMN aplicativo_mobile_id BIGINT NULL");
+        }
+
+        if (!indiceExiste("assinaturas", "idx_assinaturas_aplicativo_mobile")) {
+            jdbcTemplate.execute(
+                    "CREATE INDEX idx_assinaturas_aplicativo_mobile ON assinaturas (aplicativo_mobile_id)");
+        }
+
+        if (!constraintExiste("assinaturas", "fk_assinaturas_aplicativo_mobile")) {
+            log.info("Criando FK fk_assinaturas_aplicativo_mobile");
+            jdbcTemplate.execute(
+                    """
+                    ALTER TABLE assinaturas
+                        ADD CONSTRAINT fk_assinaturas_aplicativo_mobile
+                            FOREIGN KEY (aplicativo_mobile_id) REFERENCES aplicativos_mobile (id)
+                    """);
+        }
+    }
+
     private boolean tabelaExiste(String tabela) {
         Integer count = jdbcTemplate.queryForObject(
                 """
@@ -149,6 +211,21 @@ public class DatabaseSchemaMigrator implements ApplicationRunner {
                 Integer.class,
                 tabela,
                 indice);
+        return count != null && count > 0;
+    }
+
+    private boolean constraintExiste(String tabela, String constraint) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.table_constraints
+                WHERE table_schema = DATABASE()
+                  AND table_name = ?
+                  AND constraint_name = ?
+                """,
+                Integer.class,
+                tabela,
+                constraint);
         return count != null && count > 0;
     }
 }

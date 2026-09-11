@@ -1,9 +1,11 @@
 package br.net.convertix.gestor.service;
 
+import br.net.convertix.gestor.entity.AplicativoMobile;
 import br.net.convertix.gestor.entity.BioLink;
 import br.net.convertix.gestor.entity.LandingPage;
 import br.net.convertix.gestor.entity.Site;
 import br.net.convertix.gestor.exception.ResourceNotFoundException;
+import br.net.convertix.gestor.repository.AplicativoMobileRepository;
 import br.net.convertix.gestor.repository.BioLinkRepository;
 import br.net.convertix.gestor.repository.LandingPageRepository;
 import br.net.convertix.gestor.repository.SiteRepository;
@@ -21,6 +23,7 @@ public class AutorizacaoService {
     private final SiteRepository siteRepository;
     private final BioLinkRepository bioLinkRepository;
     private final LandingPageRepository landingPageRepository;
+    private final AplicativoMobileRepository aplicativoMobileRepository;
 
     public Long getClienteIdFiltro() {
         UsuarioAutenticado usuario = SecurityUtil.getUsuarioLogado();
@@ -55,6 +58,19 @@ public class AutorizacaoService {
                 .orElseThrow(() -> new ResourceNotFoundException("BioLink não encontrado com id: " + bioLinkId));
 
         validarAcessoCliente(bioLink.getSite().getCliente().getId());
+    }
+
+    @Transactional(readOnly = true)
+    public void validarAcessoAplicativoMobile(Long aplicativoId) {
+        if (SecurityUtil.getUsuarioLogado().isAdmin()) {
+            return;
+        }
+
+        AplicativoMobile aplicativo = aplicativoMobileRepository.findById(aplicativoId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Aplicativo mobile não encontrado com id: " + aplicativoId));
+
+        validarAcessoCliente(aplicativo.getCliente().getId());
     }
 
     @Transactional(readOnly = true)
