@@ -36,6 +36,40 @@ public interface SiteRepository extends JpaRepository<Site, Long>, JpaSpecificat
     List<Object[]> contarAgrupadoPorTipo(@Param("clienteId") Long clienteId);
 
     @Query("""
+            SELECT s.status, COUNT(s)
+            FROM Site s
+            WHERE (:clienteId IS NULL OR s.cliente.id = :clienteId)
+              AND s.tipo = :tipo
+            GROUP BY s.status
+            """)
+    List<Object[]> contarAgrupadoPorStatusETipo(@Param("clienteId") Long clienteId, @Param("tipo") TipoSite tipo);
+
+    @Query("""
+            SELECT YEAR(s.createdAt), MONTH(s.createdAt), COUNT(s)
+            FROM Site s
+            WHERE (:clienteId IS NULL OR s.cliente.id = :clienteId)
+              AND s.tipo = :tipo
+              AND s.createdAt >= :inicio
+            GROUP BY YEAR(s.createdAt), MONTH(s.createdAt)
+            ORDER BY YEAR(s.createdAt), MONTH(s.createdAt)
+            """)
+    List<Object[]> contarNovosPorMesETipo(
+            @Param("clienteId") Long clienteId,
+            @Param("tipo") TipoSite tipo,
+            @Param("inicio") LocalDateTime inicio);
+
+    @Query("""
+            SELECT s FROM Site s JOIN FETCH s.cliente
+            WHERE (:clienteId IS NULL OR s.cliente.id = :clienteId)
+              AND s.tipo = :tipo
+            ORDER BY s.createdAt DESC
+            """)
+    List<Site> findRecentesPorTipo(
+            @Param("clienteId") Long clienteId,
+            @Param("tipo") TipoSite tipo,
+            Pageable pageable);
+
+    @Query("""
             SELECT YEAR(s.createdAt), MONTH(s.createdAt), COUNT(s)
             FROM Site s
             WHERE (:clienteId IS NULL OR s.cliente.id = :clienteId)

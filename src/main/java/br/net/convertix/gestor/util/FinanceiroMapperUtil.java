@@ -29,12 +29,11 @@ public class FinanceiroMapperUtil {
 
         Site site = resolverSite(pagamento);
         AplicativoMobile aplicativo = site == null ? resolverAplicativo(pagamento) : null;
-        String produtoNome = site != null
-                ? site.getNome()
-                : (aplicativo != null ? aplicativo.getNome() : null);
-        String produtoTipo = site != null && site.getTipo() != null
-                ? site.getTipo().name()
-                : (aplicativo != null ? "APLICATIVO_MOBILE" : null);
+        String produtoNome = resolverProdutoNome(pagamento);
+        String produtoTipo = resolverProdutoTipo(pagamento);
+        if ("OUTROS".equals(produtoTipo)) {
+            produtoTipo = null;
+        }
 
         return PagamentoResponse.builder()
                 .id(pagamento.getId())
@@ -68,6 +67,45 @@ public class FinanceiroMapperUtil {
                         ? toHistoricoList(pagamento.getHistoricoStatus())
                         : null)
                 .build();
+    }
+
+    public String resolverProdutoTipo(Pagamento pagamento) {
+        if (pagamento == null) {
+            return "OUTROS";
+        }
+        Site site = resolverSite(pagamento);
+        if (site != null && site.getTipo() != null) {
+            return site.getTipo().name();
+        }
+        if (resolverAplicativo(pagamento) != null) {
+            return "APLICATIVO_MOBILE";
+        }
+        return "OUTROS";
+    }
+
+    public String resolverProdutoNome(Pagamento pagamento) {
+        if (pagamento == null) {
+            return null;
+        }
+        Site site = resolverSite(pagamento);
+        if (site != null) {
+            return site.getNome();
+        }
+        AplicativoMobile aplicativo = resolverAplicativo(pagamento);
+        return aplicativo != null ? aplicativo.getNome() : null;
+    }
+
+    public String resolverProdutoTipo(Assinatura assinatura) {
+        if (assinatura == null) {
+            return "OUTROS";
+        }
+        if (assinatura.getSite() != null && assinatura.getSite().getTipo() != null) {
+            return assinatura.getSite().getTipo().name();
+        }
+        if (assinatura.getAplicativoMobile() != null) {
+            return "APLICATIVO_MOBILE";
+        }
+        return "OUTROS";
     }
 
     /**

@@ -21,14 +21,15 @@ public class DashboardController {
 
     private final DashboardInicioService dashboardInicioService;
 
-    @Operation(summary = "Dashboard completo da tela Início (operação + financeiro + funil + séries)")
+    @Operation(summary = "Dashboard da tela Início, separado por financeiro (com filtro de produto) e cadastros")
     @GetMapping("/inicio")
     public ResponseEntity<DashboardInicioResponse> inicio(
             @RequestParam(name = "meses", defaultValue = "12") int meses,
+            @RequestParam(name = "tipo_produto", defaultValue = "TODOS") String tipoProduto,
             @RequestParam(name = "limite_atividades", defaultValue = "10") int limiteAtividades,
             @RequestParam(name = "limite_alertas", defaultValue = "10") int limiteAlertas,
             @RequestParam(name = "limite_tops", defaultValue = "5") int limiteTops) {
         return ResponseEntity.ok(dashboardInicioService.obterDashboard(
-                meses, limiteAtividades, limiteAlertas, limiteTops));
+                meses, tipoProduto, limiteAtividades, limiteAlertas, limiteTops));
     }
 }

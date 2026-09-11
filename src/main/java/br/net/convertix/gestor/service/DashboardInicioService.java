@@ -8,12 +8,16 @@ import br.net.convertix.gestor.dto.response.DashboardInicioResponse.ClienteRecei
 import br.net.convertix.gestor.dto.response.DashboardInicioResponse.ContagemChave;
 import br.net.convertix.gestor.dto.response.DashboardInicioResponse.ContagemValor;
 import br.net.convertix.gestor.dto.response.DashboardInicioResponse.Distribuicoes;
+import br.net.convertix.gestor.dto.response.DashboardInicioResponse.Financeiro;
 import br.net.convertix.gestor.dto.response.DashboardInicioResponse.Funil;
 import br.net.convertix.gestor.dto.response.DashboardInicioResponse.FunilTaxas;
 import br.net.convertix.gestor.dto.response.DashboardInicioResponse.Kpis;
 import br.net.convertix.gestor.dto.response.DashboardInicioResponse.PagamentoDashboardItem;
 import br.net.convertix.gestor.dto.response.DashboardInicioResponse.PontoQuantidadeMensal;
 import br.net.convertix.gestor.dto.response.DashboardInicioResponse.PontoReceitaMensal;
+import br.net.convertix.gestor.dto.response.DashboardInicioResponse.ProdutoBloco;
+import br.net.convertix.gestor.dto.response.DashboardInicioResponse.ProdutoRecente;
+import br.net.convertix.gestor.dto.response.DashboardInicioResponse.Produtos;
 import br.net.convertix.gestor.dto.response.DashboardInicioResponse.Series;
 import br.net.convertix.gestor.dto.response.DashboardInicioResponse.SiteRecenteTop;
 import br.net.convertix.gestor.dto.response.DashboardInicioResponse.Tops;
@@ -25,12 +29,15 @@ import br.net.convertix.gestor.entity.Site;
 import br.net.convertix.gestor.entity.Usuario;
 import br.net.convertix.gestor.enums.CicloAssinatura;
 import br.net.convertix.gestor.enums.FormaPagamento;
+import br.net.convertix.gestor.enums.StatusAplicativoMobile;
 import br.net.convertix.gestor.enums.StatusAssinatura;
 import br.net.convertix.gestor.enums.StatusPagamento;
 import br.net.convertix.gestor.enums.StatusSite;
+import br.net.convertix.gestor.enums.TipoProdutoDashboard;
 import br.net.convertix.gestor.enums.TipoSite;
 import br.net.convertix.gestor.enums.TipoUsuario;
 import br.net.convertix.gestor.exception.ResourceNotFoundException;
+import br.net.convertix.gestor.repository.AplicativoMobileRepository;
 import br.net.convertix.gestor.repository.AssinaturaRepository;
 import br.net.convertix.gestor.repository.BioLinkRepository;
 import br.net.convertix.gestor.repository.ClienteRepository;
@@ -39,6 +46,7 @@ import br.net.convertix.gestor.repository.SiteRepository;
 import br.net.convertix.gestor.repository.UsuarioRepository;
 import br.net.convertix.gestor.security.SecurityUtil;
 import br.net.convertix.gestor.security.UsuarioAutenticado;
+import br.net.convertix.gestor.util.FinanceiroMapperUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -54,6 +62,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -83,15 +92,22 @@ public class DashboardInicioService {
     private final ClienteRepository clienteRepository;
     private final SiteRepository siteRepository;
     private final BioLinkRepository bioLinkRepository;
+    private final AplicativoMobileRepository aplicativoMobileRepository;
     private final PagamentoRepository pagamentoRepository;
     private final AssinaturaRepository assinaturaRepository;
 
     @Transactional(readOnly = true)
-    public DashboardInicioResponse obterDashboard(int meses, int limiteAtividades, int limiteAlertas, int limiteTops) {
+    public DashboardInicioResponse obterDashboard(
+            int meses,
+            String tipoProdutoParam,
+            int limiteAtividades,
+            int limiteAlertas,
+            int limiteTops) {
         int periodoMeses = clamp(meses, 3, 24, 12);
         int limAtividades = clamp(limiteAtividades, 1, 30, 10);
         int limAlertas = clamp(limiteAlertas, 1, 30, 10);
         int limTops = clamp(limiteTops, 1, 10, 5);
+        TipoProdutoDashboard tipoProduto = TipoProdutoDashboard.fromParam(tipoProdutoParam);
 
         UsuarioAutenticado auth = SecurityUtil.getUsuarioLogado();
         Long clienteId = autorizacaoService.getClienteIdFiltro();
@@ -104,22 +120,40 @@ public class DashboardInicioService {
         LocalDateTime inicioProximoMes = mesAtual.plusMonths(1).atDay(1).atStartOfDay();
         LocalDateTime inicioMesAnterior = mesAnterior.atDay(1).atStartOfDay();
 
+        List<Pagamento> pagamentos = pagamentoRepository.findAllComProduto(clienteId);
+        List<Assinatura> assinaturasAtivas = assinaturaRepository.findPorStatusComProduto(
+                clienteId, StatusAssinatura.ACTIVE);
+
         Kpis kpis = montarKpis(clienteId, inicioMesAtual, inicioProximoMes, inicioMesAnterior);
+        Financeiro financeiro = montarFinanceiro(
+                tipoProduto,
+                pagamentos,
+                assinaturasAtivas,
+                inicioSeries,
+                inicioMesAtual,
+                inicioProximoMes,
+                inicioMesAnterior,
+                Math.max(limTops, 10));
+        Produtos produtos = montarProdutos(clienteId, assinaturasAtivas, inicioSeries, limTops);
         Distribuicoes distribuicoes = montarDistribuicoes(clienteId);
         Series series = montarSeries(clienteId, inicioSeries);
         Funil funil = montarFunil(clienteId);
         List<Alerta> alertas = montarAlertas(clienteId, limAlertas);
         Tops tops = montarTops(clienteId, limTops);
         AssinaturaDestaque assinaturaDestaque = montarAssinaturaDestaque(clienteId);
-        List<PagamentoDashboardItem> ultimosPagamentos = montarUltimosPagamentos(clienteId, Math.max(limTops, 10));
+        List<PagamentoDashboardItem> ultimosPagamentos = financeiro.getUltimosPagamentos();
         List<AtividadeRecente> atividades = montarAtividades(clienteId, limAtividades);
 
         return DashboardInicioResponse.builder()
                 .geradoEm(Instant.now())
                 .escopo(escopo)
                 .periodoMeses(periodoMeses)
+                .tipoProduto(tipoProduto.name())
+                .tipoProdutoLabel(tipoProduto.label())
                 .usuario(montarUsuario(auth))
                 .kpis(kpis)
+                .financeiro(financeiro)
+                .produtos(produtos)
                 .distribuicoes(distribuicoes)
                 .series(series)
                 .funil(funil)
@@ -237,6 +271,366 @@ public class DashboardInicioService {
         };
     }
 
+    private Financeiro montarFinanceiro(
+            TipoProdutoDashboard tipoProduto,
+            List<Pagamento> pagamentos,
+            List<Assinatura> assinaturasAtivas,
+            LocalDateTime inicioSeries,
+            LocalDateTime inicioMesAtual,
+            LocalDateTime inicioProximoMes,
+            LocalDateTime inicioMesAnterior,
+            int limitePagamentos) {
+        List<Pagamento> filtrados = pagamentos.stream()
+                .filter(pagamento -> tipoProduto.inclui(FinanceiroMapperUtil.resolverProdutoTipo(pagamento)))
+                .toList();
+        List<Assinatura> assinaturasFiltradas = assinaturasAtivas.stream()
+                .filter(assinatura -> tipoProduto.inclui(FinanceiroMapperUtil.resolverProdutoTipo(assinatura)))
+                .toList();
+
+        BigDecimal totalPago = BigDecimal.ZERO;
+        BigDecimal totalPendente = BigDecimal.ZERO;
+        BigDecimal receitaMesAtual = BigDecimal.ZERO;
+        BigDecimal receitaMesAnterior = BigDecimal.ZERO;
+        long quantidadePendentes = 0;
+        long quantidadeVencidos = 0;
+        long quantidadePagos = 0;
+
+        Map<StatusPagamento, Long> statusQtd = new EnumMap<>(StatusPagamento.class);
+        Map<StatusPagamento, BigDecimal> statusValor = new EnumMap<>(StatusPagamento.class);
+        Map<FormaPagamento, Long> formaQtd = new EnumMap<>(FormaPagamento.class);
+        Map<FormaPagamento, BigDecimal> formaValor = new EnumMap<>(FormaPagamento.class);
+        Map<String, BigDecimal> pagoPorMes = new HashMap<>();
+        Map<String, BigDecimal> pendentePorMes = new HashMap<>();
+        Map<String, Long> qtdPagoPorMes = new HashMap<>();
+        Map<String, Long> qtdPendentePorMes = new HashMap<>();
+
+        for (Pagamento pagamento : filtrados) {
+            BigDecimal valor = zero(pagamento.getValor());
+            StatusPagamento status = pagamento.getStatus();
+            if (status != null) {
+                statusQtd.merge(status, 1L, Long::sum);
+                statusValor.merge(status, valor, BigDecimal::add);
+            }
+            if (pagamento.getFormaPagamento() != null) {
+                formaQtd.merge(pagamento.getFormaPagamento(), 1L, Long::sum);
+                formaValor.merge(pagamento.getFormaPagamento(), valor, BigDecimal::add);
+            }
+            if (STATUS_PAGOS.contains(status)) {
+                totalPago = totalPago.add(valor);
+                quantidadePagos++;
+                LocalDateTime dataRef = pagamento.getDataConfirmacao() != null
+                        ? pagamento.getDataConfirmacao()
+                        : pagamento.getCreatedAt();
+                if (dataRef != null) {
+                    if (!dataRef.isBefore(inicioMesAtual) && dataRef.isBefore(inicioProximoMes)) {
+                        receitaMesAtual = receitaMesAtual.add(valor);
+                    } else if (!dataRef.isBefore(inicioMesAnterior) && dataRef.isBefore(inicioMesAtual)) {
+                        receitaMesAnterior = receitaMesAnterior.add(valor);
+                    }
+                }
+            }
+            if (STATUS_PENDENTES.contains(status)) {
+                totalPendente = totalPendente.add(valor);
+            }
+            if (status == StatusPagamento.PENDING) {
+                quantidadePendentes++;
+            }
+            if (status == StatusPagamento.OVERDUE) {
+                quantidadeVencidos++;
+            }
+
+            LocalDateTime criadoEm = pagamento.getCreatedAt();
+            if (criadoEm != null && !criadoEm.isBefore(inicioSeries)) {
+                String chave = chaveMes(criadoEm.getYear(), criadoEm.getMonthValue());
+                if (STATUS_PAGOS.contains(status)) {
+                    pagoPorMes.merge(chave, valor, BigDecimal::add);
+                    qtdPagoPorMes.merge(chave, 1L, Long::sum);
+                } else if (STATUS_PENDENTES.contains(status)) {
+                    pendentePorMes.merge(chave, valor, BigDecimal::add);
+                    qtdPendentePorMes.merge(chave, 1L, Long::sum);
+                }
+            }
+        }
+
+        BigDecimal ticketMedio = quantidadePagos == 0
+                ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+                : totalPago.divide(BigDecimal.valueOf(quantidadePagos), 2, RoundingMode.HALF_UP);
+
+        BigDecimal mrr = BigDecimal.ZERO;
+        for (Assinatura assinatura : assinaturasFiltradas) {
+            mrr = mrr.add(normalizarParaMensal(assinatura.getValor(), assinatura.getCiclo()));
+        }
+
+        List<PontoReceitaMensal> receitaMensal = new ArrayList<>();
+        YearMonth cursor = YearMonth.from(inicioSeries);
+        YearMonth fim = YearMonth.now();
+        while (!cursor.isAfter(fim)) {
+            String chave = chaveMes(cursor.getYear(), cursor.getMonthValue());
+            String label = String.format(Locale.ROOT, "%04d-%02d", cursor.getYear(), cursor.getMonthValue());
+            receitaMensal.add(PontoReceitaMensal.builder()
+                    .ano(cursor.getYear())
+                    .mes(cursor.getMonthValue())
+                    .label(label)
+                    .valorPago(pagoPorMes.getOrDefault(chave, BigDecimal.ZERO))
+                    .valorPendente(pendentePorMes.getOrDefault(chave, BigDecimal.ZERO))
+                    .quantidadePagos(qtdPagoPorMes.getOrDefault(chave, 0L))
+                    .quantidadePendentes(qtdPendentePorMes.getOrDefault(chave, 0L))
+                    .build());
+            cursor = cursor.plusMonths(1);
+        }
+
+        Map<String, BigDecimal> receitaProdutoValor = new LinkedHashMap<>();
+        Map<String, Long> receitaProdutoQtd = new LinkedHashMap<>();
+        for (TipoProdutoDashboard tipo : List.of(
+                TipoProdutoDashboard.BIOLINK,
+                TipoProdutoDashboard.LANDING_PAGE,
+                TipoProdutoDashboard.SITE_COMERCIAL,
+                TipoProdutoDashboard.APLICATIVO_MOBILE)) {
+            receitaProdutoValor.put(tipo.name(), BigDecimal.ZERO);
+            receitaProdutoQtd.put(tipo.name(), 0L);
+        }
+        for (Pagamento pagamento : pagamentos) {
+            if (!STATUS_PAGOS.contains(pagamento.getStatus())) {
+                continue;
+            }
+            String tipo = FinanceiroMapperUtil.resolverProdutoTipo(pagamento);
+            receitaProdutoValor.merge(tipo, zero(pagamento.getValor()), BigDecimal::add);
+            receitaProdutoQtd.merge(tipo, 1L, Long::sum);
+        }
+        List<ContagemValor> receitaPorProduto = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal> entry : receitaProdutoValor.entrySet()) {
+            if ("OUTROS".equals(entry.getKey())
+                    && entry.getValue().compareTo(BigDecimal.ZERO) == 0
+                    && receitaProdutoQtd.getOrDefault(entry.getKey(), 0L) == 0) {
+                continue;
+            }
+            receitaPorProduto.add(ContagemValor.builder()
+                    .chave(entry.getKey())
+                    .label(labelProduto(entry.getKey()))
+                    .quantidade(receitaProdutoQtd.getOrDefault(entry.getKey(), 0L))
+                    .valor(entry.getValue())
+                    .build());
+        }
+
+        List<ContagemValor> pagamentosPorStatus = new ArrayList<>();
+        for (StatusPagamento status : STATUS_PAGAMENTO_DASHBOARD) {
+            pagamentosPorStatus.add(ContagemValor.builder()
+                    .chave(status.name())
+                    .label(labelStatusPagamento(status))
+                    .quantidade(statusQtd.getOrDefault(status, 0L))
+                    .valor(statusValor.getOrDefault(status, BigDecimal.ZERO))
+                    .build());
+        }
+
+        List<ContagemValor> pagamentosPorForma = new ArrayList<>();
+        for (FormaPagamento forma : FormaPagamento.values()) {
+            pagamentosPorForma.add(ContagemValor.builder()
+                    .chave(forma.name())
+                    .label(labelFormaPagamento(forma))
+                    .quantidade(formaQtd.getOrDefault(forma, 0L))
+                    .valor(formaValor.getOrDefault(forma, BigDecimal.ZERO))
+                    .build());
+        }
+
+        List<PagamentoDashboardItem> ultimosPagamentos = filtrados.stream()
+                .sorted(Comparator.comparing(Pagamento::getCreatedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(limitePagamentos)
+                .map(this::toPagamentoItem)
+                .collect(Collectors.toList());
+
+        return Financeiro.builder()
+                .tipoProduto(tipoProduto.name())
+                .tipoProdutoLabel(tipoProduto.label())
+                .receitaMesAtual(receitaMesAtual)
+                .receitaMesAnterior(receitaMesAnterior)
+                .variacaoReceitaPercentual(calcularVariacaoPercentual(receitaMesAtual, receitaMesAnterior))
+                .totalPago(totalPago)
+                .totalPendente(totalPendente)
+                .quantidadePagamentos(filtrados.size())
+                .quantidadePendentes(quantidadePendentes)
+                .quantidadeVencidos(quantidadeVencidos)
+                .ticketMedioPago(ticketMedio)
+                .mrrEstimado(mrr.setScale(2, RoundingMode.HALF_UP))
+                .assinaturasAtivas(assinaturasFiltradas.size())
+                .receitaMensal(receitaMensal)
+                .receitaPorProduto(receitaPorProduto)
+                .pagamentosPorStatus(pagamentosPorStatus)
+                .pagamentosPorForma(pagamentosPorForma)
+                .ultimosPagamentos(ultimosPagamentos)
+                .build();
+    }
+
+    private Produtos montarProdutos(
+            Long clienteId,
+            List<Assinatura> assinaturasAtivas,
+            LocalDateTime inicioSeries,
+            int limiteRecentes) {
+        Map<String, Long> assinaturasPorProduto = new HashMap<>();
+        Map<String, BigDecimal> mrrPorProduto = new HashMap<>();
+        for (Assinatura assinatura : assinaturasAtivas) {
+            String tipo = FinanceiroMapperUtil.resolverProdutoTipo(assinatura);
+            assinaturasPorProduto.merge(tipo, 1L, Long::sum);
+            mrrPorProduto.merge(tipo, normalizarParaMensal(assinatura.getValor(), assinatura.getCiclo()), BigDecimal::add);
+        }
+
+        return Produtos.builder()
+                .aplicativos(montarBlocoAplicativos(
+                        clienteId, inicioSeries, limiteRecentes, assinaturasPorProduto, mrrPorProduto))
+                .biolinks(montarBlocoSite(
+                        TipoSite.BIOLINK,
+                        "BioLink",
+                        clienteId,
+                        inicioSeries,
+                        limiteRecentes,
+                        assinaturasPorProduto,
+                        mrrPorProduto))
+                .landingPages(montarBlocoSite(
+                        TipoSite.LANDING_PAGE,
+                        "Landing page",
+                        clienteId,
+                        inicioSeries,
+                        limiteRecentes,
+                        assinaturasPorProduto,
+                        mrrPorProduto))
+                .sitesInstitucionais(montarBlocoSite(
+                        TipoSite.SITE_COMERCIAL,
+                        "Site institucional",
+                        clienteId,
+                        inicioSeries,
+                        limiteRecentes,
+                        assinaturasPorProduto,
+                        mrrPorProduto))
+                .build();
+    }
+
+    private ProdutoBloco montarBlocoSite(
+            TipoSite tipo,
+            String label,
+            Long clienteId,
+            LocalDateTime inicioSeries,
+            int limiteRecentes,
+            Map<String, Long> assinaturasPorProduto,
+            Map<String, BigDecimal> mrrPorProduto) {
+        Map<StatusSite, Long> porStatusMap = toEnumCountMap(
+                siteRepository.contarAgrupadoPorStatusETipo(clienteId, tipo), StatusSite.class);
+        long total = siteRepository.contarPorClienteETipo(clienteId, tipo);
+
+        List<ContagemChave> porStatus = new ArrayList<>();
+        for (StatusSite status : StatusSite.values()) {
+            porStatus.add(ContagemChave.builder()
+                    .chave(status.name())
+                    .label(labelStatusSite(status))
+                    .quantidade(porStatusMap.getOrDefault(status, 0L))
+                    .build());
+        }
+
+        List<ProdutoRecente> recentes = siteRepository
+                .findRecentesPorTipo(clienteId, tipo, PageRequest.of(0, limiteRecentes))
+                .stream()
+                .map(site -> {
+                    Cliente cliente = site.getCliente();
+                    return ProdutoRecente.builder()
+                            .id(site.getId())
+                            .nome(site.getNome())
+                            .status(site.getStatus() != null ? site.getStatus().name() : null)
+                            .statusLabel(site.getStatus() != null ? labelStatusSite(site.getStatus()) : null)
+                            .clienteId(cliente != null ? cliente.getId() : null)
+                            .clienteNome(cliente != null ? cliente.getNomeEmpresa() : null)
+                            .createdAt(site.getCreatedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return ProdutoBloco.builder()
+                .chave(tipo.name())
+                .label(label)
+                .total(total)
+                .destaque(porStatusMap.getOrDefault(StatusSite.ATIVO, 0L))
+                .destaqueLabel("Ativos")
+                .assinaturasAtivas(assinaturasPorProduto.getOrDefault(tipo.name(), 0L))
+                .mrrEstimado(zero(mrrPorProduto.get(tipo.name())).setScale(2, RoundingMode.HALF_UP))
+                .porStatus(porStatus)
+                .novosMensal(preencherSerieQuantidade(
+                        toMesQuantidadeMap(siteRepository.contarNovosPorMesETipo(clienteId, tipo, inicioSeries)),
+                        inicioSeries))
+                .recentes(recentes)
+                .build();
+    }
+
+    private ProdutoBloco montarBlocoAplicativos(
+            Long clienteId,
+            LocalDateTime inicioSeries,
+            int limiteRecentes,
+            Map<String, Long> assinaturasPorProduto,
+            Map<String, BigDecimal> mrrPorProduto) {
+        Map<StatusAplicativoMobile, Long> porStatusMap = toEnumCountMap(
+                aplicativoMobileRepository.contarAgrupadoPorStatus(clienteId), StatusAplicativoMobile.class);
+        long total = aplicativoMobileRepository.contarPorCliente(clienteId);
+
+        List<ContagemChave> porStatus = new ArrayList<>();
+        for (StatusAplicativoMobile status : StatusAplicativoMobile.values()) {
+            porStatus.add(ContagemChave.builder()
+                    .chave(status.name())
+                    .label(labelStatusAplicativo(status))
+                    .quantidade(porStatusMap.getOrDefault(status, 0L))
+                    .build());
+        }
+
+        List<ProdutoRecente> recentes = aplicativoMobileRepository
+                .findRecentes(clienteId, PageRequest.of(0, limiteRecentes))
+                .stream()
+                .map(app -> {
+                    Cliente cliente = app.getCliente();
+                    return ProdutoRecente.builder()
+                            .id(app.getId())
+                            .nome(app.getNome())
+                            .status(app.getStatus() != null ? app.getStatus().name() : null)
+                            .statusLabel(app.getStatus() != null ? labelStatusAplicativo(app.getStatus()) : null)
+                            .clienteId(cliente != null ? cliente.getId() : null)
+                            .clienteNome(cliente != null ? cliente.getNomeEmpresa() : null)
+                            .createdAt(app.getCreatedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return ProdutoBloco.builder()
+                .chave(TipoProdutoDashboard.APLICATIVO_MOBILE.name())
+                .label(TipoProdutoDashboard.APLICATIVO_MOBILE.label())
+                .total(total)
+                .destaque(porStatusMap.getOrDefault(StatusAplicativoMobile.PRODUCAO, 0L))
+                .destaqueLabel("Em produção")
+                .assinaturasAtivas(assinaturasPorProduto.getOrDefault(
+                        TipoProdutoDashboard.APLICATIVO_MOBILE.name(), 0L))
+                .mrrEstimado(zero(mrrPorProduto.get(TipoProdutoDashboard.APLICATIVO_MOBILE.name()))
+                        .setScale(2, RoundingMode.HALF_UP))
+                .porStatus(porStatus)
+                .novosMensal(preencherSerieQuantidade(
+                        toMesQuantidadeMap(aplicativoMobileRepository.contarNovosPorMes(clienteId, inicioSeries)),
+                        inicioSeries))
+                .recentes(recentes)
+                .build();
+    }
+
+    private List<PontoQuantidadeMensal> preencherSerieQuantidade(
+            Map<String, Long> quantidadePorMes,
+            LocalDateTime inicioSeries) {
+        List<PontoQuantidadeMensal> serie = new ArrayList<>();
+        YearMonth cursor = YearMonth.from(inicioSeries);
+        YearMonth fim = YearMonth.now();
+        while (!cursor.isAfter(fim)) {
+            String chave = chaveMes(cursor.getYear(), cursor.getMonthValue());
+            String label = String.format(Locale.ROOT, "%04d-%02d", cursor.getYear(), cursor.getMonthValue());
+            serie.add(pontoQuantidade(
+                    cursor.getYear(),
+                    cursor.getMonthValue(),
+                    label,
+                    quantidadePorMes.getOrDefault(chave, 0L)));
+            cursor = cursor.plusMonths(1);
+        }
+        return serie;
+    }
+
     private Distribuicoes montarDistribuicoes(Long clienteId) {
         Map<StatusSite, Long> sitesStatus = toEnumCountMap(
                 siteRepository.contarAgrupadoPorStatus(clienteId), StatusSite.class);
@@ -288,6 +682,7 @@ public class DashboardInicioService {
         for (StatusPagamento status : STATUS_PAGAMENTO_DASHBOARD) {
             pagamentosPorStatus.add(ContagemValor.builder()
                     .chave(status.name())
+                    .label(labelStatusPagamento(status))
                     .quantidade(pagStatusQtd.getOrDefault(status, 0L))
                     .valor(pagStatusValor.getOrDefault(status, BigDecimal.ZERO))
                     .build());
@@ -297,6 +692,7 @@ public class DashboardInicioService {
         for (FormaPagamento forma : FormaPagamento.values()) {
             pagamentosPorForma.add(ContagemValor.builder()
                     .chave(forma.name())
+                    .label(labelFormaPagamento(forma))
                     .quantidade(pagFormaQtd.getOrDefault(forma, 0L))
                     .valor(pagFormaValor.getOrDefault(forma, BigDecimal.ZERO))
                     .build());
@@ -538,12 +934,6 @@ public class DashboardInicioService {
                 .build();
     }
 
-    private List<PagamentoDashboardItem> montarUltimosPagamentos(Long clienteId, int limite) {
-        return pagamentoRepository.findRecentes(clienteId, PageRequest.of(0, limite)).stream()
-                .map(this::toPagamentoItem)
-                .collect(Collectors.toList());
-    }
-
     private List<AtividadeRecente> montarAtividades(Long clienteId, int limite) {
         PageRequest page = PageRequest.of(0, limite);
         List<AtividadeRecente> atividades = new ArrayList<>();
@@ -619,6 +1009,7 @@ public class DashboardInicioService {
 
     private PagamentoDashboardItem toPagamentoItem(Pagamento pagamento) {
         Cliente cliente = pagamento.getCliente();
+        String produtoTipo = FinanceiroMapperUtil.resolverProdutoTipo(pagamento);
         return PagamentoDashboardItem.builder()
                 .id(pagamento.getId())
                 .valor(pagamento.getValor())
@@ -633,6 +1024,9 @@ public class DashboardInicioService {
                 .dataConfirmacao(pagamento.getDataConfirmacao())
                 .clienteId(cliente != null ? cliente.getId() : null)
                 .clienteNome(cliente != null ? cliente.getNomeEmpresa() : null)
+                .produtoNome(FinanceiroMapperUtil.resolverProdutoNome(pagamento))
+                .produtoTipo("OUTROS".equals(produtoTipo) ? null : produtoTipo)
+                .produtoTipoLabel(labelProduto(produtoTipo))
                 .build();
     }
 
@@ -724,8 +1118,50 @@ public class DashboardInicioService {
     private static String labelTipoSite(TipoSite tipo) {
         return switch (tipo) {
             case BIOLINK -> "BioLink";
-            case LANDING_PAGE -> "Landing Page";
-            case SITE_COMERCIAL -> "Site Comercial";
+            case LANDING_PAGE -> "Landing page";
+            case SITE_COMERCIAL -> "Site institucional";
+        };
+    }
+
+    private static String labelProduto(String chave) {
+        if (chave == null || "OUTROS".equals(chave)) {
+            return "Outros";
+        }
+        try {
+            return TipoProdutoDashboard.valueOf(chave).label();
+        } catch (IllegalArgumentException ignored) {
+            return "Outros";
+        }
+    }
+
+    private static String labelStatusPagamento(StatusPagamento status) {
+        return switch (status) {
+            case PENDING -> "Pendente";
+            case RECEIVED -> "Recebido";
+            case CONFIRMED -> "Confirmado";
+            case OVERDUE -> "Vencido";
+            case REFUNDED -> "Estornado";
+            case CANCELLED -> "Cancelado";
+            case FAILED -> "Falhou";
+            case DELETED -> "Excluído";
+        };
+    }
+
+    private static String labelFormaPagamento(FormaPagamento forma) {
+        return switch (forma) {
+            case PIX -> "PIX";
+            case CREDIT_CARD -> "Cartão";
+            case BOLETO -> "Boleto";
+        };
+    }
+
+    private static String labelStatusAplicativo(StatusAplicativoMobile status) {
+        return switch (status) {
+            case DESENVOLVIMENTO -> "Desenvolvimento";
+            case HOMOLOGACAO -> "Homologação";
+            case PRODUCAO -> "Produção";
+            case PAUSADO -> "Pausado";
+            case ENCERRADO -> "Encerrado";
         };
     }
 

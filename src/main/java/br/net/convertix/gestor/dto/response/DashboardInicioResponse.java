@@ -33,9 +33,13 @@ public class DashboardInicioResponse {
     private Instant geradoEm;
     private String escopo;
     private Integer periodoMeses;
+    private String tipoProduto;
+    private String tipoProdutoLabel;
 
     private UsuarioResumo usuario;
     private Kpis kpis;
+    private Financeiro financeiro;
+    private Produtos produtos;
     private Distribuicoes distribuicoes;
     private Series series;
     private Funil funil;
@@ -133,6 +137,7 @@ public class DashboardInicioResponse {
     }
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     @Getter
     @Setter
     @NoArgsConstructor
@@ -140,8 +145,92 @@ public class DashboardInicioResponse {
     @Builder
     public static class ContagemValor {
         private String chave;
+        private String label;
         private long quantidade;
         private BigDecimal valor;
+    }
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class Financeiro {
+        private String tipoProduto;
+        private String tipoProdutoLabel;
+        private BigDecimal receitaMesAtual;
+        private BigDecimal receitaMesAnterior;
+        private BigDecimal variacaoReceitaPercentual;
+        private BigDecimal totalPago;
+        private BigDecimal totalPendente;
+        private long quantidadePagamentos;
+        private long quantidadePendentes;
+        private long quantidadeVencidos;
+        private BigDecimal ticketMedioPago;
+        private BigDecimal mrrEstimado;
+        private long assinaturasAtivas;
+        @Builder.Default
+        private List<PontoReceitaMensal> receitaMensal = new ArrayList<>();
+        @Builder.Default
+        private List<ContagemValor> receitaPorProduto = new ArrayList<>();
+        @Builder.Default
+        private List<ContagemValor> pagamentosPorStatus = new ArrayList<>();
+        @Builder.Default
+        private List<ContagemValor> pagamentosPorForma = new ArrayList<>();
+        @Builder.Default
+        private List<PagamentoDashboardItem> ultimosPagamentos = new ArrayList<>();
+    }
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class Produtos {
+        private ProdutoBloco aplicativos;
+        private ProdutoBloco biolinks;
+        private ProdutoBloco landingPages;
+        private ProdutoBloco sitesInstitucionais;
+    }
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ProdutoBloco {
+        private String chave;
+        private String label;
+        private long total;
+        private long destaque;
+        private String destaqueLabel;
+        private long assinaturasAtivas;
+        private BigDecimal mrrEstimado;
+        @Builder.Default
+        private List<ContagemChave> porStatus = new ArrayList<>();
+        @Builder.Default
+        private List<PontoQuantidadeMensal> novosMensal = new ArrayList<>();
+        @Builder.Default
+        private List<ProdutoRecente> recentes = new ArrayList<>();
+    }
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ProdutoRecente {
+        private Long id;
+        private String nome;
+        private String status;
+        private String statusLabel;
+        private Long clienteId;
+        private String clienteNome;
+        private LocalDateTime createdAt;
     }
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
@@ -318,6 +407,9 @@ public class DashboardInicioResponse {
         private LocalDateTime dataConfirmacao;
         private Long clienteId;
         private String clienteNome;
+        private String produtoNome;
+        private String produtoTipo;
+        private String produtoTipoLabel;
     }
 
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)

@@ -64,6 +64,18 @@ public interface AssinaturaRepository extends JpaRepository<Assinatura, Long>, J
     List<Object[]> contarNovasPorMes(@Param("clienteId") Long clienteId, @Param("inicio") LocalDateTime inicio);
 
     @Query("""
+            SELECT DISTINCT a FROM Assinatura a
+            LEFT JOIN FETCH a.cliente
+            LEFT JOIN FETCH a.site
+            LEFT JOIN FETCH a.aplicativoMobile
+            WHERE (:clienteId IS NULL OR a.cliente.id = :clienteId)
+              AND a.status = :status
+            """)
+    List<Assinatura> findPorStatusComProduto(
+            @Param("clienteId") Long clienteId,
+            @Param("status") StatusAssinatura status);
+
+    @Query("""
             SELECT a FROM Assinatura a JOIN FETCH a.cliente
             WHERE (:clienteId IS NULL OR a.cliente.id = :clienteId)
               AND a.status = :status

@@ -119,6 +119,17 @@ public interface PagamentoRepository extends JpaRepository<Pagamento, Long>, Jpa
             Pageable pageable);
 
     @Query("""
+            SELECT DISTINCT p FROM Pagamento p
+            LEFT JOIN FETCH p.cliente
+            LEFT JOIN FETCH p.site
+            LEFT JOIN FETCH p.assinatura ass
+            LEFT JOIN FETCH ass.site
+            LEFT JOIN FETCH ass.aplicativoMobile
+            WHERE (:clienteId IS NULL OR p.cliente.id = :clienteId)
+            """)
+    List<Pagamento> findAllComProduto(@Param("clienteId") Long clienteId);
+
+    @Query("""
             SELECT p FROM Pagamento p JOIN FETCH p.cliente
             WHERE (:clienteId IS NULL OR p.cliente.id = :clienteId)
             ORDER BY p.createdAt DESC
