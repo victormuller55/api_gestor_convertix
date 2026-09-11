@@ -5,35 +5,37 @@ import br.net.convertix.gestor.enums.FormaPagamento;
 import br.net.convertix.gestor.enums.StatusPagamento;
 import lombok.experimental.UtilityClass;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.util.CollectionUtils;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.util.Collection;
 
 @UtilityClass
 public class PagamentoSpecification {
 
     public Specification<Pagamento> comFiltros(
             Long clienteId,
-            StatusPagamento status,
+            Collection<StatusPagamento> statuses,
             FormaPagamento formaPagamento,
-            LocalDateTime dataInicio,
-            LocalDateTime dataFim) {
+            LocalDate dataInicio,
+            LocalDate dataFim) {
         return (root, query, cb) -> {
             var predicate = cb.conjunction();
 
             if (clienteId != null) {
                 predicate = cb.and(predicate, cb.equal(root.get("cliente").get("id"), clienteId));
             }
-            if (status != null) {
-                predicate = cb.and(predicate, cb.equal(root.get("status"), status));
+            if (!CollectionUtils.isEmpty(statuses)) {
+                predicate = cb.and(predicate, root.get("status").in(statuses));
             }
             if (formaPagamento != null) {
                 predicate = cb.and(predicate, cb.equal(root.get("formaPagamento"), formaPagamento));
             }
             if (dataInicio != null) {
-                predicate = cb.and(predicate, cb.greaterThanOrEqualTo(root.get("createdAt"), dataInicio));
+                predicate = cb.and(predicate, cb.greaterThanOrEqualTo(root.get("dataVencimento"), dataInicio));
             }
             if (dataFim != null) {
-                predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("createdAt"), dataFim));
+                predicate = cb.and(predicate, cb.lessThanOrEqualTo(root.get("dataVencimento"), dataFim));
             }
 
             return predicate;

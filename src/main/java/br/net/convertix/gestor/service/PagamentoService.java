@@ -36,8 +36,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -213,7 +211,7 @@ public class PagamentoService {
 
     @Transactional
     public PageResponse<PagamentoResponse> listar(
-            StatusPagamento status,
+            List<StatusPagamento> status,
             FormaPagamento formaPagamento,
             LocalDate dataInicio,
             LocalDate dataFim,
@@ -222,12 +220,9 @@ public class PagamentoService {
         Long clienteIdFiltro = autorizacaoService.getClienteIdFiltro();
         sincronizarTodosAutorizados(clienteIdFiltro);
 
-        LocalDateTime inicio = dataInicio != null ? dataInicio.atStartOfDay() : null;
-        LocalDateTime fim = dataFim != null ? dataFim.atTime(LocalTime.MAX) : null;
-
         Page<Pagamento> resultado = pagamentoRepository.findAll(
-                PagamentoSpecification.comFiltros(clienteIdFiltro, status, formaPagamento, inicio, fim),
-                PaginationUtil.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
+                PagamentoSpecification.comFiltros(clienteIdFiltro, status, formaPagamento, dataInicio, dataFim),
+                PaginationUtil.of(page, size, Sort.by(Sort.Direction.DESC, "dataVencimento")));
 
         return PaginationUtil.toResponse(resultado, FinanceiroMapperUtil::toResponse);
     }

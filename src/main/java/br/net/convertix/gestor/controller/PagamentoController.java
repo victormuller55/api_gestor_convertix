@@ -64,14 +64,14 @@ public class PagamentoController {
     @Operation(summary = "Listar pagamentos com filtros e paginação")
     @GetMapping
     public ResponseEntity<PageResponse<PagamentoResponse>> listar(
-            @Parameter(description = "Status do pagamento")
-            @RequestParam(required = false) StatusPagamento status,
+            @Parameter(description = "Status do pagamento. Pode repetir o parâmetro para filtrar vários.")
+            @RequestParam(required = false) List<StatusPagamento> status,
             @Parameter(description = "Forma de pagamento")
             @RequestParam(required = false, name = "forma_pagamento") FormaPagamento formaPagamento,
-            @Parameter(description = "Data inicial (yyyy-MM-dd)")
+            @Parameter(description = "Vencimento inicial (yyyy-MM-dd)")
             @RequestParam(required = false, name = "data_inicio")
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
-            @Parameter(description = "Data final (yyyy-MM-dd)")
+            @Parameter(description = "Vencimento final (yyyy-MM-dd)")
             @RequestParam(required = false, name = "data_fim")
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
             @RequestParam(defaultValue = "0") int page,
