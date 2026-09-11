@@ -9,6 +9,21 @@ public final class CicloAssinaturaUtil {
     private CicloAssinaturaUtil() {
     }
 
+    public static String label(CicloAssinatura ciclo) {
+        if (ciclo == null) {
+            return null;
+        }
+        return switch (ciclo) {
+            case WEEKLY -> "Semanal";
+            case BIWEEKLY -> "Quinzenal";
+            case MONTHLY -> "Mensal";
+            case BIMONTHLY -> "Bimestral";
+            case QUARTERLY -> "Trimestral";
+            case SEMIANNUALLY -> "Semestral";
+            case YEARLY -> "Anual";
+        };
+    }
+
     public static LocalDate calcularProxima(LocalDate dataBase, CicloAssinatura ciclo) {
         if (dataBase == null || ciclo == null) {
             return null;

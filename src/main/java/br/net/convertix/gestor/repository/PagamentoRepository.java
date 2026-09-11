@@ -13,6 +13,7 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -55,6 +56,84 @@ public interface PagamentoRepository extends JpaRepository<Pagamento, Long>, Jpa
 
     @Query("SELECT COUNT(p) FROM Pagamento p WHERE (:clienteId IS NULL OR p.cliente.id = :clienteId) AND p.status IN :statuses")
     long contarPorClienteEStatuses(@Param("clienteId") Long clienteId, @Param("statuses") List<StatusPagamento> statuses);
+
+    @Query("""
+            SELECT COUNT(p)
+            FROM Pagamento p
+            WHERE (:clienteId IS NULL OR p.cliente.id = :clienteId)
+              AND p.status IN :statuses
+              AND COALESCE(p.dataConfirmacao, p.createdAt) >= :inicio
+              AND COALESCE(p.dataConfirmacao, p.createdAt) < :fim
+            """)
+    long contarPagoNoPeriodo(
+            @Param("clienteId") Long clienteId,
+            @Param("statuses") List<StatusPagamento> statuses,
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fim") LocalDateTime fim);
+
+    @Query("""
+            SELECT COALESCE(SUM(p.valor), 0)
+            FROM Pagamento p
+            WHERE (:clienteId IS NULL OR p.cliente.id = :clienteId)
+              AND p.status IN :statuses
+              AND p.dataVencimento >= :inicio
+              AND p.dataVencimento <= :fim
+            """)
+    BigDecimal somarPorStatusEVencimento(
+            @Param("clienteId") Long clienteId,
+            @Param("statuses") List<StatusPagamento> statuses,
+            @Param("inicio") LocalDate inicio,
+            @Param("fim") LocalDate fim);
+
+    @Query("""
+            SELECT COUNT(p)
+            FROM Pagamento p
+            WHERE (:clienteId IS NULL OR p.cliente.id = :clienteId)
+              AND p.status IN :statuses
+              AND p.dataVencimento >= :inicio
+              AND p.dataVencimento <= :fim
+            """)
+    long contarPorStatusEVencimento(
+            @Param("clienteId") Long clienteId,
+            @Param("statuses") List<StatusPagamento> statuses,
+            @Param("inicio") LocalDate inicio,
+            @Param("fim") LocalDate fim);
+
+    @Query("""
+            SELECT MIN(p.dataVencimento)
+            FROM Pagamento p
+            WHERE (:clienteId IS NULL OR p.cliente.id = :clienteId)
+              AND p.status IN :statuses
+              AND p.dataVencimento IS NOT NULL
+              AND p.dataVencimento >= :aPartirDe
+            """)
+    LocalDate findProximoVencimentoAberto(
+            @Param("clienteId") Long clienteId,
+            @Param("statuses") List<StatusPagamento> statuses,
+            @Param("aPartirDe") LocalDate aPartirDe);
+
+    @Query("""
+            SELECT MIN(p.dataVencimento)
+            FROM Pagamento p
+            WHERE (:clienteId IS NULL OR p.cliente.id = :clienteId)
+              AND p.status IN :statuses
+              AND p.dataVencimento IS NOT NULL
+            """)
+    LocalDate findPrimeiroVencimentoAberto(
+            @Param("clienteId") Long clienteId,
+            @Param("statuses") List<StatusPagamento> statuses);
+
+    @Query("""
+            SELECT p.assinatura.id, MIN(p.dataVencimento)
+            FROM Pagamento p
+            WHERE p.assinatura.id IN :ids
+              AND p.status IN :statuses
+              AND p.dataVencimento IS NOT NULL
+            GROUP BY p.assinatura.id
+            """)
+    List<Object[]> findPrimeiroVencimentoAbertoPorAssinaturas(
+            @Param("ids") Collection<Long> ids,
+            @Param("statuses") List<StatusPagamento> statuses);
 
     @Query("""
             SELECT p.status, COUNT(p), COALESCE(SUM(p.valor), 0)

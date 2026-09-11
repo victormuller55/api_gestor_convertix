@@ -1,6 +1,8 @@
 package br.net.convertix.gestor.dto.response;
 
+import br.net.convertix.gestor.enums.CicloAssinatura;
 import br.net.convertix.gestor.enums.FormaPagamento;
+import br.net.convertix.gestor.enums.SituacaoAssinaturaSite;
 import br.net.convertix.gestor.enums.StatusPagamento;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
@@ -12,7 +14,8 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 @Getter
@@ -33,4 +36,26 @@ public class FinanceiroDashboardResponse {
     private FormaPagamento metodoPagamentoAssinatura;
     private String descricaoAssinatura;
     private StatusPagamento statusUltimoPagamento;
+    @Builder.Default
+    private List<AssinaturaAtivaItem> assinaturasAtivas = new ArrayList<>();
+
+    @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class AssinaturaAtivaItem {
+        private Long id;
+        private String descricao;
+        private BigDecimal valor;
+        private CicloAssinatura ciclo;
+        private String cicloLabel;
+        private FormaPagamento formaPagamento;
+        private String clienteNome;
+        private String produtoNome;
+        private LocalDate proximaCobranca;
+        private SituacaoAssinaturaSite situacao;
+        private String situacaoLabel;
+    }
 }

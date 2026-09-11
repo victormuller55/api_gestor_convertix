@@ -83,6 +83,16 @@ public class FinanceiroMapperUtil {
         return "OUTROS";
     }
 
+    public String resolverProdutoNome(Assinatura assinatura) {
+        if (assinatura == null) {
+            return null;
+        }
+        if (assinatura.getSite() != null) {
+            return assinatura.getSite().getNome();
+        }
+        return assinatura.getAplicativoMobile() != null ? assinatura.getAplicativoMobile().getNome() : null;
+    }
+
     public String resolverProdutoNome(Pagamento pagamento) {
         if (pagamento == null) {
             return null;
