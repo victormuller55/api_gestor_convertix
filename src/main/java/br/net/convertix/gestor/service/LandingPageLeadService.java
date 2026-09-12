@@ -47,6 +47,7 @@ public class LandingPageLeadService {
     private final LandingPageLeadRepository leadRepository;
     private final LandingPageLeadValorRepository leadValorRepository;
     private final AutorizacaoService autorizacaoService;
+    private final EmailService emailService;
 
     @Transactional
     public LandingPageLeadResponse receberEnvio(
@@ -78,6 +79,7 @@ public class LandingPageLeadService {
 
         lead = leadRepository.save(lead);
         salvarValores(lead, camposAtivos, respostas);
+        emailService.enviarConfirmacaoLead(lead.getEmail(), lead.getNome());
 
         return montarResponse(lead);
     }
