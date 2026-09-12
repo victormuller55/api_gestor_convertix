@@ -1,13 +1,14 @@
 package br.net.convertix.gestor.repository.spec;
 
 import br.net.convertix.gestor.entity.Usuario;
+import br.net.convertix.gestor.enums.TipoUsuario;
 import lombok.experimental.UtilityClass;
 import org.springframework.data.jpa.domain.Specification;
 
 @UtilityClass
 public class UsuarioSpecification {
 
-    public Specification<Usuario> comFiltros(Long id, String query, Boolean ativo) {
+    public Specification<Usuario> comFiltros(Long id, String query, Boolean ativo, TipoUsuario tipo) {
         return (root, criteriaQuery, criteriaBuilder) -> {
             var predicates = criteriaBuilder.conjunction();
 
@@ -25,6 +26,10 @@ public class UsuarioSpecification {
 
             if (ativo != null) {
                 predicates = criteriaBuilder.and(predicates, criteriaBuilder.equal(root.get("ativo"), ativo));
+            }
+
+            if (tipo != null) {
+                predicates = criteriaBuilder.and(predicates, criteriaBuilder.equal(root.get("tipo"), tipo));
             }
 
             return predicates;

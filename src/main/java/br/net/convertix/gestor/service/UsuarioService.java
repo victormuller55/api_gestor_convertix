@@ -32,9 +32,9 @@ public class UsuarioService {
     private final ArquivoService arquivoService;
 
     @Transactional(readOnly = true)
-    public PageResponse<UsuarioResponse> buscar(Long id, String query, Boolean ativo, int page, int size) {
+    public PageResponse<UsuarioResponse> buscar(Long id, String query, Boolean ativo, TipoUsuario tipo, int page, int size) {
         Page<Usuario> resultado = usuarioRepository.findAll(
-                UsuarioSpecification.comFiltros(id, query, ativo),
+                UsuarioSpecification.comFiltros(id, query, ativo, tipo),
                 PaginationUtil.of(page, size));
         return PaginationUtil.toResponse(resultado, MapperUtil::toResponse);
     }

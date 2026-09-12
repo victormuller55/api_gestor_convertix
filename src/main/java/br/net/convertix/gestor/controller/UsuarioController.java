@@ -3,6 +3,7 @@ package br.net.convertix.gestor.controller;
 import br.net.convertix.gestor.dto.request.UsuarioRequest;
 import br.net.convertix.gestor.dto.response.PageResponse;
 import br.net.convertix.gestor.dto.response.UsuarioResponse;
+import br.net.convertix.gestor.enums.TipoUsuario;
 import br.net.convertix.gestor.service.UsuarioService;
 import br.net.convertix.gestor.util.PaginationUtil;
 import br.net.convertix.gestor.validation.ValidationGroups;
@@ -43,11 +44,13 @@ public class UsuarioController {
             @RequestParam(required = false) String query,
             @Parameter(description = "Filtrar por status ativo (true ou false)")
             @RequestParam(required = false) Boolean ativo,
+            @Parameter(description = "Filtrar por tipo de usuário (ADMIN ou CLIENTE)")
+            @RequestParam(required = false) TipoUsuario tipo,
             @Parameter(description = "Número da página (base 0)")
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Itens por página (padrão 30, máximo 100)")
             @RequestParam(defaultValue = "" + PaginationUtil.DEFAULT_SIZE) int size) {
-        return ResponseEntity.ok(usuarioService.buscar(id, query, ativo, page, size));
+        return ResponseEntity.ok(usuarioService.buscar(id, query, ativo, tipo, page, size));
     }
 
     @Operation(summary = "Cadastrar novo usuário admin")
