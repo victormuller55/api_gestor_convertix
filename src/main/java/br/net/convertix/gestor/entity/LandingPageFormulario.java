@@ -49,6 +49,7 @@ public class LandingPageFormulario {
     @Column(nullable = false)
     private String titulo;
 
+    @Column(length = 500)
     private String descricao;
 
     @Column(name = "texto_botao", nullable = false)

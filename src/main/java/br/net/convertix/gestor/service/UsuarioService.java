@@ -72,7 +72,7 @@ public class UsuarioService {
         if (request.getSenha() != null && !request.getSenha().isBlank()) {
             usuario.setSenha(passwordEncoder.encode(request.getSenha()));
         }
-        atualizarFoto(usuario, foto);
+        atualizarFoto(usuario, foto, Boolean.TRUE.equals(request.getRemoverFoto()));
         return MapperUtil.toResponse(usuarioRepository.save(usuario));
     }
 
@@ -95,11 +95,15 @@ public class UsuarioService {
         usuarioRepository.deleteById(id);
     }
 
-    private void atualizarFoto(Usuario usuario, MultipartFile foto) {
-        if (foto == null || foto.isEmpty()) {
+    private void atualizarFoto(Usuario usuario, MultipartFile foto, boolean remover) {
+        if (foto != null && !foto.isEmpty()) {
+            arquivoService.excluir(usuario.getFoto());
+            usuario.setFoto(arquivoService.salvar(foto, PASTA_FOTOS));
             return;
         }
-        arquivoService.excluir(usuario.getFoto());
-        usuario.setFoto(arquivoService.salvar(foto, PASTA_FOTOS));
+        if (remover) {
+            arquivoService.excluir(usuario.getFoto());
+            usuario.setFoto(null);
+        }
     }
 }

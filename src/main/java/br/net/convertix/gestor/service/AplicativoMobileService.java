@@ -30,6 +30,7 @@ public class AplicativoMobileService {
     private final ClienteRepository clienteRepository;
     private final AutorizacaoService autorizacaoService;
     private final ArquivoService arquivoService;
+    private final ProjetoService projetoService;
 
     @Transactional(readOnly = true)
     public PageResponse<AplicativoMobileResponse> buscar(
@@ -97,6 +98,7 @@ public class AplicativoMobileService {
     public void excluir(Long id) {
         SecurityUtil.exigirAdmin();
         AplicativoMobile aplicativo = buscarEntidade(id);
+        projetoService.desvincularAplicativo(id);
         arquivoService.excluir(aplicativo.getDocumentoRequisitosUrl());
         aplicativoMobileRepository.delete(aplicativo);
     }

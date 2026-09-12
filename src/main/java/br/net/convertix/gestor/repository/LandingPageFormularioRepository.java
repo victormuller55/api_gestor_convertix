@@ -8,6 +8,8 @@ import java.util.Optional;
 
 public interface LandingPageFormularioRepository extends JpaRepository<LandingPageFormulario, Long> {
 
+    long countByLandingPageId(Long landingPageId);
+
     List<LandingPageFormulario> findByLandingPageIdOrderByNomeAsc(Long landingPageId);
 
     Optional<LandingPageFormulario> findByIdAndLandingPageId(Long id, Long landingPageId);

@@ -36,6 +36,7 @@ public class ClienteService {
     private final ArquivoService arquivoService;
     private final SiteService siteService;
     private final AplicativoMobileService aplicativoMobileService;
+    private final ProjetoService projetoService;
 
     @Transactional(readOnly = true)
     public PageResponse<ClienteResponse> buscar(Long id, String query, int page, int size) {
@@ -108,7 +109,7 @@ public class ClienteService {
         if (request.getSenha() != null && !request.getSenha().isBlank()) {
             usuario.setSenha(passwordEncoder.encode(request.getSenha()));
         }
-        atualizarFoto(usuario, foto);
+        atualizarFoto(usuario, foto, Boolean.TRUE.equals(request.getRemoverFoto()));
 
         usuarioRepository.save(usuario);
         return MapperUtil.toResponse(clienteRepository.save(cliente));
@@ -121,6 +122,7 @@ public class ClienteService {
 
         Usuario usuario = cliente.getUsuario();
 
+        projetoService.excluirPorCliente(id);
         aplicativoMobileService.excluirPorCliente(id);
 
         siteRepository.findByClienteId(id).stream()
@@ -140,12 +142,16 @@ public class ClienteService {
         }
     }
 
-    private void atualizarFoto(Usuario usuario, MultipartFile foto) {
-        if (foto == null || foto.isEmpty()) {
+    private void atualizarFoto(Usuario usuario, MultipartFile foto, boolean remover) {
+        if (foto != null && !foto.isEmpty()) {
+            arquivoService.excluir(usuario.getFoto());
+            usuario.setFoto(arquivoService.salvar(foto, PASTA_FOTOS));
             return;
         }
-        arquivoService.excluir(usuario.getFoto());
-        usuario.setFoto(arquivoService.salvar(foto, PASTA_FOTOS));
+        if (remover) {
+            arquivoService.excluir(usuario.getFoto());
+            usuario.setFoto(null);
+        }
     }
 
     private String validarDocumento(String documento) {

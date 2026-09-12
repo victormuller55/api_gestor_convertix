@@ -3,14 +3,13 @@ package br.net.convertix.gestor.service;
 import br.net.convertix.gestor.dto.request.LandingPageLeadRequest;
 import br.net.convertix.gestor.dto.request.LandingPageLeadStatusRequest;
 import br.net.convertix.gestor.dto.response.LandingPageLeadResponse;
+import br.net.convertix.gestor.dto.response.PageResponse;
 import br.net.convertix.gestor.entity.LandingPage;
 import br.net.convertix.gestor.entity.LandingPageCampo;
 import br.net.convertix.gestor.entity.LandingPageFormulario;
 import br.net.convertix.gestor.entity.LandingPageLead;
 import br.net.convertix.gestor.entity.LandingPageLeadValor;
 import br.net.convertix.gestor.enums.StatusLandingPageLead;
-import br.net.convertix.gestor.enums.StatusSite;
-import br.net.convertix.gestor.enums.TipoSite;
 import br.net.convertix.gestor.exception.BusinessException;
 import br.net.convertix.gestor.exception.ResourceNotFoundException;
 import br.net.convertix.gestor.repository.LandingPageCampoRepository;
@@ -18,8 +17,12 @@ import br.net.convertix.gestor.repository.LandingPageFormularioRepository;
 import br.net.convertix.gestor.repository.LandingPageLeadRepository;
 import br.net.convertix.gestor.repository.LandingPageLeadValorRepository;
 import br.net.convertix.gestor.repository.LandingPageRepository;
+import br.net.convertix.gestor.repository.spec.LandingPageLeadSpecification;
 import br.net.convertix.gestor.util.MapperUtil;
+import br.net.convertix.gestor.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -37,6 +40,7 @@ public class LandingPageLeadService {
     private static final String CHAVE_EMAIL = "email";
     private static final String CHAVE_TELEFONE = "telefone";
 
+    private final LandingPageService landingPageService;
     private final LandingPageRepository landingPageRepository;
     private final LandingPageFormularioRepository formularioRepository;
     private final LandingPageCampoRepository campoRepository;
@@ -51,7 +55,7 @@ public class LandingPageLeadService {
             String ip,
             String userAgent,
             String origem) {
-        LandingPage landingPage = buscarLandingPagePublicaPorSlug(slug);
+        LandingPage landingPage = landingPageService.buscarPublica(slug);
         LandingPageFormulario formulario = buscarFormularioAtivo(landingPage, request.getFormularioId());
 
         Map<String, String> respostas = normalizarRespostas(request.getRespostas());
@@ -76,6 +80,23 @@ public class LandingPageLeadService {
         salvarValores(lead, camposAtivos, respostas);
 
         return montarResponse(lead);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<LandingPageLeadResponse> listar(
+            Long landingPageId,
+            StatusLandingPageLead status,
+            String query,
+            int page,
+            int size) {
+        if (landingPageId != null) {
+            validarAcessoLandingPage(landingPageId);
+        }
+        Long clienteIdFiltro = autorizacaoService.getClienteIdFiltro();
+        Page<LandingPageLead> resultado = leadRepository.findAll(
+                LandingPageLeadSpecification.comFiltros(landingPageId, clienteIdFiltro, status, query),
+                PaginationUtil.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
+        return PaginationUtil.toResponse(resultado, this::montarResponse);
     }
 
     @Transactional(readOnly = true)
@@ -112,22 +133,6 @@ public class LandingPageLeadService {
         validarAcessoLandingPage(landingPageId);
         LandingPageLead lead = buscarLeadDaLandingPage(landingPageId, leadId);
         leadRepository.delete(lead);
-    }
-
-    private LandingPage buscarLandingPagePublicaPorSlug(String slug) {
-        if (!StringUtils.hasText(slug)) {
-            throw new BusinessException("O slug da Landing Page é obrigatório");
-        }
-
-        LandingPage landingPage = landingPageRepository.findBySlug(slug)
-                .orElseThrow(() -> new ResourceNotFoundException("Landing Page não encontrada"));
-
-        if (landingPage.getSite().getTipo() != TipoSite.LANDING_PAGE
-                || landingPage.getSite().getStatus() != StatusSite.ATIVO) {
-            throw new ResourceNotFoundException("Landing Page não encontrada");
-        }
-
-        return landingPage;
     }
 
     private LandingPageFormulario buscarFormularioAtivo(LandingPage landingPage, Long formularioId) {

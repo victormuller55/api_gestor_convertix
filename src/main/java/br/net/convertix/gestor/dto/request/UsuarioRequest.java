@@ -56,4 +56,7 @@ public class UsuarioRequest {
             groups = {ValidationGroups.OnCreate.class, ValidationGroups.OnUpdate.class},
             message = "O campo ativo é obrigatório")
     private Boolean ativo;
+
+    @Schema(description = "Quando true, remove a foto atual se nenhuma nova for enviada")
+    private Boolean removerFoto;
 }

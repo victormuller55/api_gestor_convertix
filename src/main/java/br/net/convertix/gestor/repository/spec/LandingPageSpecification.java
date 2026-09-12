@@ -7,7 +7,7 @@ import org.springframework.data.jpa.domain.Specification;
 @UtilityClass
 public class LandingPageSpecification {
 
-    public Specification<LandingPage> comFiltros(Long id, Long clienteId) {
+    public Specification<LandingPage> comFiltros(Long id, String query, Long clienteId) {
         return (root, criteriaQuery, criteriaBuilder) -> {
             var predicates = criteriaBuilder.conjunction();
 
@@ -18,6 +18,15 @@ public class LandingPageSpecification {
             if (clienteId != null) {
                 predicates = criteriaBuilder.and(predicates,
                         criteriaBuilder.equal(root.get("site").get("cliente").get("id"), clienteId));
+            }
+
+            if (query != null && !query.isBlank()) {
+                String termo = "%" + query.toLowerCase() + "%";
+                predicates = criteriaBuilder.and(predicates, criteriaBuilder.or(
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("slug")), termo),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("site").get("nome")), termo),
+                        criteriaBuilder.like(
+                                criteriaBuilder.lower(root.get("site").get("cliente").get("nomeEmpresa")), termo)));
             }
 
             return predicates;

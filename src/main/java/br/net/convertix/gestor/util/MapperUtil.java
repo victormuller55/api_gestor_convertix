@@ -301,10 +301,14 @@ public class MapperUtil {
     }
 
     public LandingPageResponse toResponse(LandingPage entity) {
+        var site = entity.getSite();
+        var cliente = site != null && site.getCliente() != null ? site.getCliente() : null;
         return LandingPageResponse.builder()
                 .id(entity.getId())
-                .siteId(entity.getSite().getId())
-                .siteNome(entity.getSite().getNome())
+                .siteId(site != null ? site.getId() : null)
+                .siteNome(site != null ? site.getNome() : null)
+                .clienteId(cliente != null ? cliente.getId() : null)
+                .clienteNomeEmpresa(cliente != null ? cliente.getNomeEmpresa() : null)
                 .slug(entity.getSlug())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
@@ -389,10 +393,19 @@ public class MapperUtil {
             respostas.put(valor.getCampo().getNomeInterno(), valor.getValor());
         }
 
+        var landingPage = entity.getLandingPage();
+        var site = landingPage != null ? landingPage.getSite() : null;
+        var cliente = site != null ? site.getCliente() : null;
+        var formulario = entity.getFormulario();
+
         return LandingPageLeadResponse.builder()
                 .id(entity.getId())
-                .landingPageId(entity.getLandingPage().getId())
-                .formularioId(entity.getFormulario().getId())
+                .landingPageId(landingPage != null ? landingPage.getId() : null)
+                .landingPageSlug(landingPage != null ? landingPage.getSlug() : null)
+                .siteNome(site != null ? site.getNome() : null)
+                .clienteNomeEmpresa(cliente != null ? cliente.getNomeEmpresa() : null)
+                .formularioId(formulario != null ? formulario.getId() : null)
+                .formularioNome(formulario != null ? formulario.getNome() : null)
                 .nome(entity.getNome())
                 .email(entity.getEmail())
                 .telefone(entity.getTelefone())

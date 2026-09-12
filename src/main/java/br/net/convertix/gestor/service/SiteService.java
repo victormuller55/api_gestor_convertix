@@ -47,6 +47,7 @@ public class SiteService {
     private final BioLinkService bioLinkService;
     private final LandingPageService landingPageService;
     private final AutorizacaoService autorizacaoService;
+    private final ProjetoService projetoService;
     private final AssinaturaRepository assinaturaRepository;
     private final PagamentoRepository pagamentoRepository;
 
@@ -131,6 +132,7 @@ public class SiteService {
 
         autorizacaoService.validarAcessoSite(id);
 
+        projetoService.desvincularSite(id);
         bioLinkRepository.findBySiteId(id).ifPresent(bioLink -> bioLinkService.excluir(bioLink.getId()));
         landingPageRepository.findBySiteId(id).ifPresent(landingPage -> landingPageService.excluir(landingPage.getId()));
 
@@ -176,7 +178,7 @@ public class SiteService {
     }
 
     private void validarTipoSitePermitido(TipoSite tipo) {
-        if (tipo != TipoSite.BIOLINK) {
+        if (tipo != TipoSite.BIOLINK && tipo != TipoSite.LANDING_PAGE) {
             throw new BusinessException("Tipo de site não disponível no momento: " + tipo);
         }
     }

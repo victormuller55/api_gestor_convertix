@@ -22,7 +22,11 @@ public class LandingPageLeadResponse {
 
     private Long id;
     private Long landingPageId;
+    private String landingPageSlug;
+    private String siteNome;
+    private String clienteNomeEmpresa;
     private Long formularioId;
+    private String formularioNome;
     private String nome;
     private String email;
     private String telefone;

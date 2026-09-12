@@ -1,5 +1,8 @@
 package br.net.convertix.gestor.dto.response;
 
+import br.net.convertix.gestor.enums.CicloAssinatura;
+import br.net.convertix.gestor.enums.TipoProjeto;
+import br.net.convertix.gestor.enums.VinculoPlano;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import lombok.AllArgsConstructor;
@@ -8,6 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
@@ -16,16 +20,19 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class LandingPageResponse {
+public class PlanoResponse {
 
     private Long id;
-    private Long siteId;
-    private String siteNome;
-    private Long clienteId;
-    private String clienteNomeEmpresa;
-    private String slug;
-    private Integer quantidadeFormularios;
-    private Integer quantidadeLeads;
+    private String codigo;
+    private String nome;
+    private TipoProjeto tipo;
+    private VinculoPlano vinculo;
+    private BigDecimal valor;
+    private boolean valorLivre;
+    private CicloAssinatura ciclo;
+    private String descricaoPadrao;
+    private boolean ativo;
+    private int ordem;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

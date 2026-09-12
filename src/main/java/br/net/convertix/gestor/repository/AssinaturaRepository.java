@@ -29,6 +29,8 @@ public interface AssinaturaRepository extends JpaRepository<Assinatura, Long>, J
     boolean existsByAplicativoMobileIdAndStatusAndIdNot(
             Long aplicativoMobileId, StatusAssinatura status, Long id);
 
+    boolean existsByPlanoId(Long planoId);
+
     Optional<Assinatura> findFirstByClienteIdAndStatusOrderByCreatedAtDesc(Long clienteId, StatusAssinatura status);
 
     Optional<Assinatura> findFirstByStatusOrderByCreatedAtDesc(StatusAssinatura status);

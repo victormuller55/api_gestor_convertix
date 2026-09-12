@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.util.List;
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 @Getter
@@ -16,16 +16,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class LandingPageResponse {
+public class LandingPageFormularioPublicoResponse {
 
     private Long id;
-    private Long siteId;
-    private String siteNome;
-    private Long clienteId;
-    private String clienteNomeEmpresa;
-    private String slug;
-    private Integer quantidadeFormularios;
-    private Integer quantidadeLeads;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private String nome;
+    private String titulo;
+    private String descricao;
+    private String textoBotao;
+    private List<LandingPageCampoResponse> campos;
 }

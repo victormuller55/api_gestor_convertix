@@ -10,9 +10,12 @@ import br.net.convertix.gestor.entity.AplicativoMobile;
 import br.net.convertix.gestor.entity.Assinatura;
 import br.net.convertix.gestor.entity.Cliente;
 import br.net.convertix.gestor.entity.Pagamento;
+import br.net.convertix.gestor.entity.Plano;
 import br.net.convertix.gestor.entity.Site;
+import br.net.convertix.gestor.enums.CicloAssinatura;
 import br.net.convertix.gestor.enums.FormaPagamento;
 import br.net.convertix.gestor.enums.StatusAssinatura;
+import br.net.convertix.gestor.enums.VinculoPlano;
 import br.net.convertix.gestor.exception.BusinessException;
 import br.net.convertix.gestor.exception.ResourceNotFoundException;
 import br.net.convertix.gestor.integration.payment.PaymentGateway;
@@ -20,6 +23,7 @@ import br.net.convertix.gestor.repository.AplicativoMobileRepository;
 import br.net.convertix.gestor.repository.AssinaturaRepository;
 import br.net.convertix.gestor.repository.ClienteRepository;
 import br.net.convertix.gestor.repository.PagamentoRepository;
+import br.net.convertix.gestor.repository.PlanoRepository;
 import br.net.convertix.gestor.repository.SiteRepository;
 import br.net.convertix.gestor.repository.spec.AssinaturaSpecification;
 import br.net.convertix.gestor.util.FinanceiroMapperUtil;
@@ -33,6 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Slf4j
@@ -45,6 +50,7 @@ public class AssinaturaService {
     private final ClienteRepository clienteRepository;
     private final SiteRepository siteRepository;
     private final AplicativoMobileRepository aplicativoMobileRepository;
+    private final PlanoRepository planoRepository;
     private final AutorizacaoService autorizacaoService;
     private final PagamentoService pagamentoService;
     private final PaymentGateway paymentGateway;
@@ -65,8 +71,29 @@ public class AssinaturaService {
 
         Site site = carregarSite(request.getSiteId());
         AplicativoMobile aplicativo = carregarAplicativo(request.getAplicativoMobileId());
+        Plano plano = carregarPlano(request.getPlanoId());
         validarVinculoAssinatura(cliente.getId(), site, aplicativo);
+        validarVinculoPlano(plano, site, aplicativo);
         validarAplicativoSemAssinaturaAtiva(aplicativo, null);
+
+        BigDecimal valor = request.getValor();
+        CicloAssinatura ciclo = request.getCiclo();
+        String descricao = request.getDescricao();
+        if (plano != null) {
+            if (!plano.isValorLivre()) {
+                if (plano.getValor() == null) {
+                    throw new BusinessException("O plano selecionado não tem valor cadastrado");
+                }
+                valor = plano.getValor();
+                ciclo = plano.getCiclo();
+            }
+            if (!StringUtils.hasText(descricao)) {
+                descricao = plano.getDescricaoPadrao();
+            }
+        }
+        if (!StringUtils.hasText(descricao)) {
+            throw new BusinessException("A descrição é obrigatória");
+        }
 
         String customerId = pagamentoService.garantirCustomerAsaas(cliente);
         String remoteIp = resolverIp(httpRequest);
@@ -74,9 +101,9 @@ public class AssinaturaService {
         PaymentGateway.GatewaySubscription gateway = paymentGateway.criarAssinatura(
                 new PaymentGateway.GatewaySubscriptionRequest(
                         customerId,
-                        request.getValor(),
-                        request.getDescricao(),
-                        request.getCiclo(),
+                        valor,
+                        descricao,
+                        ciclo,
                         request.getFormaPagamento(),
                         request.getProximaCobranca(),
                         request.getExternalReference(),
@@ -90,10 +117,11 @@ public class AssinaturaService {
                 .cliente(cliente)
                 .site(site)
                 .aplicativoMobile(aplicativo)
+                .plano(plano)
                 .asaasSubscriptionId(gateway.id())
-                .valor(request.getValor())
-                .descricao(request.getDescricao())
-                .ciclo(request.getCiclo())
+                .valor(valor)
+                .descricao(descricao)
+                .ciclo(ciclo)
                 .formaPagamento(request.getFormaPagamento())
                 .status(gateway.status())
                 .proximaCobranca(gateway.nextDueDate() != null ? gateway.nextDueDate() : request.getProximaCobranca())
@@ -262,6 +290,36 @@ public class AssinaturaService {
         return aplicativoMobileRepository.findById(aplicativoMobileId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Aplicativo mobile não encontrado com id: " + aplicativoMobileId));
+    }
+
+    private Plano carregarPlano(Long planoId) {
+        if (planoId == null) {
+            return null;
+        }
+        Plano plano = planoRepository.findById(planoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Plano não encontrado com id: " + planoId));
+        if (!plano.isAtivo()) {
+            throw new BusinessException("Este plano está inativo");
+        }
+        return plano;
+    }
+
+    private void validarVinculoPlano(Plano plano, Site site, AplicativoMobile aplicativo) {
+        if (plano == null) {
+            return;
+        }
+        if (plano.getVinculo() == VinculoPlano.SITE && site == null) {
+            throw new BusinessException("Este plano exige um site");
+        }
+        if (plano.getVinculo() == VinculoPlano.APLICATIVO && aplicativo == null) {
+            throw new BusinessException("Este plano exige um aplicativo mobile");
+        }
+        if (plano.getVinculo() == VinculoPlano.SITE && aplicativo != null) {
+            throw new BusinessException("Este plano não aceita aplicativo mobile");
+        }
+        if (plano.getVinculo() == VinculoPlano.APLICATIVO && site != null) {
+            throw new BusinessException("Este plano não aceita site");
+        }
     }
 
     private void validarVinculoAssinatura(Long clienteId, Site site, AplicativoMobile aplicativo) {

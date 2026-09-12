@@ -77,6 +77,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers("/api/v1/auth/**").permitAll()
                             .requestMatchers(HttpMethod.GET, "/api/v1/biolinks/publico", "/api/v1/biolinks/publico/**").permitAll()
+                            .requestMatchers(HttpMethod.GET, "/api/v1/landing-pages/publico", "/api/v1/landing-pages/publico/**").permitAll()
+                            .requestMatchers(HttpMethod.POST, "/api/v1/landing-pages/publico/leads").permitAll()
                             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                             .requestMatchers(HttpMethod.POST, "/api/v1/webhook/asaas").permitAll()
                             .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll();
@@ -101,6 +103,10 @@ public class SecurityConfig {
                             .requestMatchers(HttpMethod.POST, "/api/v1/aplicativos-mobile/**").hasRole("ADMIN")
                             .requestMatchers(HttpMethod.PUT, "/api/v1/aplicativos-mobile/**").hasRole("ADMIN")
                             .requestMatchers(HttpMethod.DELETE, "/api/v1/aplicativos-mobile/**").hasRole("ADMIN")
+                            .requestMatchers(HttpMethod.POST, "/api/v1/projetos/**").hasRole("ADMIN")
+                            .requestMatchers(HttpMethod.PUT, "/api/v1/projetos/**").hasRole("ADMIN")
+                            .requestMatchers(HttpMethod.DELETE, "/api/v1/projetos/**").hasRole("ADMIN")
+                            .requestMatchers("/api/v1/planos/**").hasRole("ADMIN")
                             .anyRequest().authenticated();
                 })
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)

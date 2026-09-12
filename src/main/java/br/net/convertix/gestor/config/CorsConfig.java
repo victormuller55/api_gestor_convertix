@@ -38,13 +38,15 @@ public class CorsConfig {
         // chama de um domínio/porta fora da lista restrita.
         CorsConfiguration publicCors = new CorsConfiguration();
         publicCors.setAllowedOriginPatterns(List.of("*"));
-        publicCors.setAllowedMethods(List.of("GET", "OPTIONS"));
+        publicCors.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
         publicCors.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
         publicCors.setExposedHeaders(split(exposedHeaders));
         publicCors.setAllowCredentials(false);
         publicCors.setMaxAge(maxAge);
         source.registerCorsConfiguration("/api/v1/biolinks/publico", publicCors);
         source.registerCorsConfiguration("/api/v1/biolinks/publico/**", publicCors);
+        source.registerCorsConfiguration("/api/v1/landing-pages/publico", publicCors);
+        source.registerCorsConfiguration("/api/v1/landing-pages/publico/**", publicCors);
         source.registerCorsConfiguration("/uploads/**", publicCors);
 
         // Demais rotas da API: apenas origens configuradas (gestor / localhost).

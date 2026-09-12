@@ -179,6 +179,8 @@ public class FinanceiroMapperUtil {
                 .siteTipo(assinatura.getSite() != null ? assinatura.getSite().getTipo() : null)
                 .aplicativoMobileId(assinatura.getAplicativoMobile() != null ? assinatura.getAplicativoMobile().getId() : null)
                 .aplicativoMobileNome(assinatura.getAplicativoMobile() != null ? assinatura.getAplicativoMobile().getNome() : null)
+                .planoId(assinatura.getPlano() != null ? assinatura.getPlano().getId() : null)
+                .planoNome(assinatura.getPlano() != null ? assinatura.getPlano().getNome() : null)
                 .asaasSubscriptionId(assinatura.getAsaasSubscriptionId())
                 .valor(assinatura.getValor())
                 .descricao(assinatura.getDescricao())

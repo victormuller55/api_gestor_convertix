@@ -75,4 +75,7 @@ public class ClienteRequest {
             groups = {ValidationGroups.OnCreate.class, ValidationGroups.OnUpdate.class},
             message = "Telefone inválido")
     private String telefone;
+
+    @Schema(description = "Quando true, remove a foto atual se nenhuma nova for enviada")
+    private Boolean removerFoto;
 }
